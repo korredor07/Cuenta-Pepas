@@ -1,5 +1,6 @@
 package app.cuentapepas.ui.summary
 
+import app.cuentapepas.ui.theme.numberStyle
 import android.content.Intent
 import android.net.Uri
 import android.os.Environment
@@ -331,9 +332,9 @@ private fun PlantsTable(d: SummaryData, onSaved: (Int) -> Unit, onError: (String
         HorizontalDivider()
         for (p in d.plants) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Text(p.plantNumber.toString(), Modifier.width(64.dp))
-                for (c in 0 until numClasses) Text(if (p.hasData) p.counts[c].toString() else dash, Modifier.width(cellW))
-                Text(if (p.hasData) p.counts.total.toString() else dash, Modifier.width(cellW))
+                Text(p.plantNumber.toString(), Modifier.width(64.dp), style = numberStyle)
+                for (c in 0 until numClasses) Text(if (p.hasData) p.counts[c].toString() else dash, Modifier.width(cellW), style = numberStyle)
+                Text(if (p.hasData) p.counts.total.toString() else dash, Modifier.width(cellW), style = numberStyle)
                 if (calibration) {
                     OutlinedTextField(
                         value = entries[p.plantNumber].orEmpty(),

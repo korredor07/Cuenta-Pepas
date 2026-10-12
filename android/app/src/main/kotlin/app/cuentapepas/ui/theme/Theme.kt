@@ -29,5 +29,9 @@ private val Dark = darkColorScheme(
 
 @Composable
 fun CuentapepasTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (isSystemInDarkTheme()) Dark else Light, content = content)
+    MaterialTheme(
+        colorScheme = if (isSystemInDarkTheme()) Dark else Light,
+        typography = CuentapepasTypography,
+        content = content,
+    )
 }

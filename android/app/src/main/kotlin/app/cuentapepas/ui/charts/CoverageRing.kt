@@ -24,6 +24,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.cuentapepas.R
+import app.cuentapepas.ui.theme.numberStyle
 import app.cuentapepas.core.format.Fmt
 
 /**
@@ -63,7 +64,7 @@ fun CoverageRing(visited: Int, total: Int?, coverage: Double?, modifier: Modifie
             }
         }
         Column(Modifier.clearAndSetSemantics { }) {
-            Text(Fmt.coverage(visited, total, coverage), style = MaterialTheme.typography.bodyLarge)
+            Text(Fmt.coverage(visited, total, coverage), style = numberStyle)
             if (!known) Text(stringResource(R.string.chart_coverage_visited_only, visited), style = MaterialTheme.typography.bodySmall)
         }
     }

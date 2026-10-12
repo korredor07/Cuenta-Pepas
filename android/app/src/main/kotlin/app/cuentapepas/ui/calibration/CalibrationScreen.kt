@@ -1,5 +1,6 @@
 package app.cuentapepas.ui.calibration
 
+import app.cuentapepas.ui.theme.numberStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -95,7 +96,7 @@ fun CalibrationScreen(lotId: String, onBack: () -> Unit) {
                     stringResource(R.string.chart_scatter_desc, points.size, lineDesc),
                 )
                 TableToggle {
-                    for (s in d.set.samples) Text(stringResource(R.string.cal_sample_line, s.plantId, s.visible, s.manual))
+                    for (s in d.set.samples) Text(stringResource(R.string.cal_sample_line, s.plantId, s.visible, s.manual), style = numberStyle)
                 }
             }
         }

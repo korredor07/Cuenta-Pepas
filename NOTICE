@@ -23,6 +23,11 @@ Este producto usa los siguientes componentes y datos de terceros:
    Copyright (c) The TensorFlow Authors. Licencia Apache-2.0.
    https://www.tensorflow.org/lite
 
+5. Fuentes Archivo, Public Sans e IBM Plex Mono
+   Archivo: Copyright 2020 The Archivo Project Authors. Public Sans: Copyright 2015 The Public Sans Project Authors.
+   IBM Plex Mono: Copyright (c) 2017 IBM Corp., Reserved Font Name "Plex". Licencia SIL Open Font License 1.1
+   (https://openfontlicense.org); textos en docs/marca/fuentes/. Fuente: https://github.com/google/fonts
+
 Licencia de los pesos del modelo
 --------------------------------
 Los pesos del modelo entrenado (archivos `*.tflite`, `*.onnx` y `*.pth` derivados del entrenamiento con Croppie

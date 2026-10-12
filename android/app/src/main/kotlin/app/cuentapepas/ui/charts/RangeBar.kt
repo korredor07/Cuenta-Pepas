@@ -1,5 +1,6 @@
 package app.cuentapepas.ui.charts
 
+import app.cuentapepas.ui.theme.numberStyle
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -41,7 +42,7 @@ fun RangeBar(
     val colors = chartColors()
     val measurer = rememberTextMeasurer()
     val labelStyle = axisTextStyle(colors.axisText)
-    val valueStyle = MaterialTheme.typography.labelMedium.copy(color = colors.ink)
+    val valueStyle = numberStyle.copy(color = colors.ink)
     val axis = ChartMath.estimateDomain(estimate.value, estimate.ci.low, estimate.ci.high, includeZero)
     val tickDecimals = ChartMath.tickDecimals(axis.step)
     Column(modifier.semantics { this.contentDescription = contentDescription }, verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -76,6 +77,6 @@ fun RangeBar(
             val tx = (xv - measured.size.width / 2f).coerceIn(0f, size.width - measured.size.width)
             drawLabel(measurer, text, valueStyle, tx, bandTop - 6.dp.toPx(), hAlign = 0f, vAlign = 1f)
         }
-        Text(Fmt.estimate(estimate, decimals), style = MaterialTheme.typography.bodySmall)
+        Text(Fmt.estimate(estimate, decimals), style = numberStyle)
     }
 }
