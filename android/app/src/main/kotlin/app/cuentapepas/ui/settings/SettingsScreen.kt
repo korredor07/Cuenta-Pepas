@@ -21,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.cuentapepas.R
+import app.cuentapepas.core.detect.ModelVariants
 import app.cuentapepas.core.store.AppSettings
 import app.cuentapepas.core.store.CorruptDataException
 import android.util.Log
@@ -65,7 +66,9 @@ private val FIELDS = listOf(
     Field("gps.maxAccuracyM", "GPS: precisión máxima aceptada (m)", Kind.NUMBER),
 )
 
-private class Loaded(val base: AppSettings, val values: Map<String, String>)
+private const val VARIANT_KEY = "detection.variant"
+
+private class Loaded(val base: AppSettings, val values: Map<String, String>, val variants: ModelVariants)
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit) {
@@ -73,8 +76,11 @@ fun SettingsScreen(onBack: () -> Unit) {
     val services = context.services
     val scope = rememberCoroutineScope()
     val loader = rememberLoader(Unit) {
+        val variants = services.variants
         val s = services.settings.load()
-        Loaded(s, s.snapshot())
+        // A stored resolution that this build no longer ships is shown (and saved) as the default one.
+        val fixed = if (variants.byId(s.detectionVariant) == null) s.copy(detectionVariant = variants.default) else s
+        Loaded(s, fixed.snapshot(), variants)
     }
     val snack = remember { SnackbarHostState() }
     val close = stringResource(R.string.snackbar_close)
@@ -84,6 +90,8 @@ fun SettingsScreen(onBack: () -> Unit) {
         Text(stringResource(R.string.settings_note), style = MaterialTheme.typography.bodyMedium)
         LoadView(loader) { loaded ->
             val values = remember(loaded) { mutableStateMapOf<String, String>().apply { putAll(loaded.values) } }
+            Text(stringResource(R.string.settings_variant_title), style = MaterialTheme.typography.titleSmall)
+            VariantSelector(loaded.variants, values[VARIANT_KEY].orEmpty(), onSelect = { values[VARIANT_KEY] = it })
             for (f in FIELDS) {
                 val v = values[f.key].orEmpty()
                 if (f.kind == Kind.FLAG) {
