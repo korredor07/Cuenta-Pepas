@@ -1,7 +1,18 @@
 package app.cuentapepas.ui.about
 
 import androidx.compose.material3.MaterialTheme
+import android.util.Log
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import app.cuentapepas.data.Diagnostics
+import app.cuentapepas.ui.common.describe
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -74,6 +85,28 @@ fun AboutScreen(onBack: () -> Unit) {
     }
     ScreenScaffold(stringResource(R.string.about_title), onBack) {
         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
+        var diagBusy by remember { mutableStateOf(false) }
+        var diagError by remember { mutableStateOf<String?>(null) }
+        val scope = rememberCoroutineScope()
+        Text(stringResource(R.string.diag_hint), style = MaterialTheme.typography.bodySmall)
+        Button(enabled = !diagBusy, onClick = {
+            diagBusy = true
+            scope.launch {
+                try {
+                    val zip = Diagnostics.build(context, services)
+                    context.startActivity(Diagnostics.shareIntent(context, zip))
+                    diagError = null
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e("Cuentapepas", "Diagnóstico falló", e)
+                    diagError = context.getString(R.string.diag_failed, context.describe(e))
+                } finally {
+                    diagBusy = false
+                }
+            }
+        }) { Text(stringResource(if (diagBusy) R.string.diag_building else R.string.diag_share)) }
+        diagError?.let { ErrorText(it) }
         LoadView(loader) { d ->
             Text(stringResource(R.string.about_version, d.version))
             d.specError?.let { ErrorText(it.message, it.detail) }
