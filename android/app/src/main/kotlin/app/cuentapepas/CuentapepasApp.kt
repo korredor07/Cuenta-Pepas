@@ -23,6 +23,11 @@ class CuentapepasApp : Application() {
             Log.w("Cuentapepas", "ATOMIC_MOVE no disponible para $file; se usó un reemplazo no atómico", cause)
         }
         services = ServiceLocator(this)
+        app.cuentapepas.data.Diagnostics.installCrashHandler(
+            this,
+            appVersion = { services.appVersion },
+            modelId = { services.modelSpec.modelId },
+        )
     }
 }
 

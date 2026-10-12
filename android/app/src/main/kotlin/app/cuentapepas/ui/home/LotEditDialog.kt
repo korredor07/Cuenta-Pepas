@@ -2,7 +2,12 @@ package app.cuentapepas.ui.home
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.ui.Modifier
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -36,12 +41,16 @@ fun LotEditDialog(initial: Lot?, onDismiss: () -> Unit, onSave: (LotForm) -> Uni
         onDismissRequest = onDismiss,
         title = { Text(stringResource(if (initial == null) R.string.lot_dialog_new else R.string.lot_dialog_edit)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                Modifier.verticalScroll(rememberScrollState()).imePadding(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 OutlinedTextField(
                     value = name, onValueChange = { name = it; nameError = false },
                     label = { Text(stringResource(R.string.lot_name)) },
                     isError = nameError,
                     supportingText = { if (nameError) Text(stringResource(R.string.lot_error_name)) },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                     singleLine = true,
                 )
                 OutlinedTextField(
@@ -49,7 +58,7 @@ fun LotEditDialog(initial: Lot?, onDismiss: () -> Unit, onSave: (LotForm) -> Uni
                     label = { Text(stringResource(R.string.lot_total_plants)) },
                     isError = totalError,
                     supportingText = { if (totalError) Text(stringResource(R.string.lot_error_total)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                     singleLine = true,
                 )
                 OutlinedTextField(
@@ -62,7 +71,7 @@ fun LotEditDialog(initial: Lot?, onDismiss: () -> Unit, onSave: (LotForm) -> Uni
                             color = if (kgError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
                     singleLine = true,
                 )
             }

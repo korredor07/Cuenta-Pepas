@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalLayoutApi::class)
+
 package app.cuentapepas.ui.bench
 
 import android.content.Intent
@@ -5,6 +7,8 @@ import android.os.Handler
 import android.os.Looper
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -78,7 +82,7 @@ fun BenchmarkScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(stringResource(R.string.bench_duration), style = MaterialTheme.typography.titleSmall)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 for (m in listOf(1, 5, 15)) {
                     FilterChip(
                         selected = minutes == m,
@@ -89,7 +93,7 @@ fun BenchmarkScreen(onBack: () -> Unit) {
                 }
             }
             Text(stringResource(R.string.bench_delegate), style = MaterialTheme.typography.titleSmall)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 FilterChip(
                     selected = !cpuOnly, enabled = !running, onClick = { cpuOnly = false },
                     label = { Text(stringResource(R.string.bench_delegate_auto)) },

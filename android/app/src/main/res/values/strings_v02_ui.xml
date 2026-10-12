@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="diag_share">Compartir diagnóstico</string>
+    <string name="diag_building">Preparando diagnóstico…</string>
+    <string name="diag_share_title">Compartir diagnóstico de Cuentapepas</string>
+    <string name="diag_failed">No se pudo preparar el diagnóstico: %1$s</string>
+    <string name="diag_hint">Genera un archivo con registros de la app, información del equipo y ajustes (sin coordenadas GPS) para enviarlo al desarrollador.</string>
+</resources>

@@ -11,7 +11,14 @@ import app.cuentapepas.core.store.LotHasSessionsException
 import app.cuentapepas.core.store.SessionNotFoundException
 import app.cuentapepas.inference.TfliteDetector
 import java.io.IOException
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.RowScope
@@ -184,7 +191,12 @@ fun ScreenScaffold(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val host = snackbar ?: remember { SnackbarHostState() }
-    Scaffold(snackbarHost = { SnackbarHost(host) }, topBar = {
+    val focus = LocalFocusManager.current
+    // Edge-to-edge: system bars and the keyboard are both reserved (max per side, so the nav bar is not counted twice).
+    Scaffold(
+        snackbarHost = { SnackbarHost(host) },
+        contentWindowInsets = WindowInsets.systemBars.union(WindowInsets.ime),
+        topBar = {
         TopAppBar(
             title = { Text(title) },
             navigationIcon = {
@@ -194,7 +206,9 @@ fun ScreenScaffold(
         )
     }) { pad ->
         Column(
-            Modifier.fillMaxSize().padding(pad).padding(16.dp).verticalScroll(rememberScrollState()),
+            Modifier.fillMaxSize().padding(pad)
+                .pointerInput(Unit) { detectTapGestures { focus.clearFocus() } } // tap outside closes the keyboard
+                .verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             content = content,
         )

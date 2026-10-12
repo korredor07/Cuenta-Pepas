@@ -1,7 +1,11 @@
+@file:OptIn(ExperimentalLayoutApi::class)
+
 package app.cuentapepas.ui.home
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -130,7 +134,7 @@ fun HomeScreen(
                         if (row.error != null) {
                             ErrorText(stringResource(R.string.home_lot_error, row.error))
                         } else {
-                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                 Text(stringResource(R.string.home_lot_sessions, row.sessionCount))
                                 Text(row.calibration.orEmpty())
                             }
