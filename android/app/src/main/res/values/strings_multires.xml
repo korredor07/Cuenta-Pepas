@@ -3,4 +3,18 @@
 <resources>
     <string name="variants_invalid">variants.json no es válido: %1$s</string>
     <string name="variant_unknown">La resolución de detección «%1$s» no existe en esta versión de la app (disponibles: %2$s). Elija otra en Ajustes.</string>
+    <string name="settings_variant_title">Resolución de detección</string>
+    <string name="settings_variant_note">Mayor resolución detecta pepas más lejanas pero usa más batería y puede bajar los FPS; mida con Benchmark.</string>
+    <string name="variant_option">%1$s — %2$d×%3$d px</string>
+    <string name="variant_use">Usar «%1$s»</string>
+    <string name="variant_switched_notice">Este recorrido usa la resolución «%1$s» porque la elegida no se pudo cargar.</string>
+    <string name="variant_switch_failed">No se pudo cambiar la resolución de detección: %1$s</string>
+    <string name="bench_variant">Resolución de detección</string>
+    <string name="bench_res_variant">Resolución: %1$s (%2$d×%3$d px)</string>
+    <string name="about_variants_title">Resolución de detección (métricas por resolución, conjunto de validación)</string>
+    <string name="about_variant_active">En uso: %1$s — %2$d×%3$d px</string>
+    <string name="about_variant_active_unknown">En uso: «%1$s» (esta versión de la app no la incluye; elija otra en Ajustes)</string>
+    <string name="about_variant_item">%1$s (%2$s) — %3$d×%4$d px</string>
+    <string name="about_variant_parity">Paridad de la exportación:</string>
+    <string name="live_distance_hint">Distancia sugerida 50–80 cm</string>
 </resources>
