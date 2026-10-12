@@ -35,6 +35,10 @@
     <string name="sessions_recovered">%1$d sesión(es) quedaron interrumpidas y se marcaron como abandonadas.</string>
     <!-- Benchmark en el dispositivo -->
     <string name="bench_title">Benchmark sostenido</string>
+    <string name="variant_unavailable">La resolución guardada «%1$s» ya no está disponible; elija una.</string>
+    <string name="variant_alt_also_failed">Tampoco funcionó la resolución «%1$s»: %2$s</string>
+    <string name="live_rotate_failed">No se pudo girar a horizontal; gire el teléfono.</string>
+    <string name="chart_not_drawable">No se puede dibujar: el valor o su intervalo no es un número finito.</string>
     <string name="bench_back">Volver</string>
     <string name="bench_duration">Duración</string>
     <string name="bench_minutes">%1$d min</string>

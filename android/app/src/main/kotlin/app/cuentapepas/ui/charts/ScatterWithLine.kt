@@ -30,6 +30,8 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import app.cuentapepas.R
 import app.cuentapepas.core.chart.ChartMath
+import android.util.Log
+import app.cuentapepas.core.chart.ChartGuard
 import app.cuentapepas.core.format.Fmt
 import app.cuentapepas.core.stats.Interval
 
@@ -50,6 +52,9 @@ fun ScatterWithLine(
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.primary,
 ) {
+    // A fit that cannot be drawn is reported once and dropped from the chart; the points still show.
+    val fitOk = k == null || ChartGuard.drawableFit(k, kCi)
+    if (!fitOk) Log.w("Cuentapepas", "Recta de ajuste omitida: k=$k, IC=$kCi no se puede dibujar")
     val colors = chartColors()
     val measurer = rememberTextMeasurer()
     val labelStyle = axisTextStyle(colors.axisText)
@@ -94,7 +99,7 @@ fun ScatterWithLine(
             drawLine(colors.outline, Offset(l, t + h), Offset(l + w, t + h), strokeWidth = 1.dp.toPx())
             drawLine(colors.outline, Offset(l, t), Offset(l, t + h), strokeWidth = 1.dp.toPx())
 
-            if (k != null && k >= 0.0 && xAxis.max > 0.0 && yAxis.max > 0.0) {
+            if (k != null && fitOk && k >= 0.0 && xAxis.max > 0.0 && yAxis.max > 0.0) {
                 if (kCi != null && kCi.low >= 0.0) {
                     val poly = ChartMath.bandPolygon(kCi.low, kCi.high, xAxis.max, yAxis.max)
                     val path = Path()
@@ -118,7 +123,10 @@ fun ScatterWithLine(
             modifier = Modifier.fillMaxWidth(),
             textAlign = androidx.compose.ui.text.style.TextAlign.End,
         )
-        if (k != null) {
+        if (!fitOk) {
+            Text("—  " + stringResource(R.string.chart_not_drawable), style = MaterialTheme.typography.bodySmall)
+        }
+        if (k != null && fitOk) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Canvas(Modifier.width(22.dp).height(10.dp)) {
                     drawLine(color, Offset(0f, size.height / 2f), Offset(size.width, size.height / 2f), strokeWidth = 2.5.dp.toPx())

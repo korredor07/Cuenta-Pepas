@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import app.cuentapepas.R
 import app.cuentapepas.ui.theme.numberStyle
 import app.cuentapepas.core.chart.ChartMath
+import android.util.Log
+import app.cuentapepas.core.chart.ChartGuard
 import app.cuentapepas.core.format.Fmt
 import app.cuentapepas.core.stats.Estimate
 
@@ -44,6 +46,14 @@ fun MaturityShareBars(
     contentDescription: String,
     modifier: Modifier = Modifier,
 ) {
+    if (!ChartGuard.drawableShares(shares)) {
+        Log.w("Cuentapepas", "Gráfico omitido: valores no finitos o fuera de rango")
+        Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text("—", style = numberStyle)
+            Text(stringResource(R.string.chart_not_drawable), style = MaterialTheme.typography.bodySmall)
+        }
+        return
+    }
     val colors = chartColors()
     val measurer = rememberTextMeasurer()
     val labelStyle = axisTextStyle(colors.axisText)

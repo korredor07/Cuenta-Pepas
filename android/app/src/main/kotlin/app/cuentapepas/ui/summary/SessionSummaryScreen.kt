@@ -409,7 +409,13 @@ private fun PlantsTable(d: SummaryData, onSaved: (Int) -> Unit, onError: (String
 @Composable
 private fun SessionCharts(d: SummaryData, withData: List<PlantRecord>) {
     val context = LocalContext.current
-    val numClasses = d.plants.first().counts.perClass.size
+    val firstPlant = d.plants.firstOrNull()
+    if (firstPlant == null) {
+        // The caller already returns early on an empty list; never crash if that ever changes.
+        Log.w("Cuentapepas", "SessionCharts llamado sin plantas")
+        return
+    }
+    val numClasses = firstPlant.counts.perClass.size
     val names = d.classNames
     fun className(i: Int) = names.getOrElse(i) { "Clase ${i + 1}" }
     val bars = d.plants.map { p ->

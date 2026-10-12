@@ -20,6 +20,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import app.cuentapepas.core.chart.ChartMath
+import androidx.compose.ui.res.stringResource
+import app.cuentapepas.R
+import android.util.Log
+import app.cuentapepas.core.chart.ChartGuard
 import app.cuentapepas.core.format.Fmt
 import app.cuentapepas.core.stats.Estimate
 import kotlin.math.max
@@ -39,6 +43,14 @@ fun RangeBar(
     color: Color = MaterialTheme.colorScheme.primary,
     includeZero: Boolean = true,
 ) {
+    if (!ChartGuard.drawable(estimate)) {
+        Log.w("Cuentapepas", "Gráfico omitido: valores no finitos o fuera de rango")
+        Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text("—", style = numberStyle)
+            Text(stringResource(R.string.chart_not_drawable), style = MaterialTheme.typography.bodySmall)
+        }
+        return
+    }
     val colors = chartColors()
     val measurer = rememberTextMeasurer()
     val labelStyle = axisTextStyle(colors.axisText)
