@@ -4,6 +4,9 @@ package app.cuentapepas.ui.bench
 
 import android.content.Intent
 import android.os.Handler
+import android.util.Log
+import androidx.compose.runtime.LaunchedEffect
+import app.cuentapepas.ui.common.ScreenScaffold
 import android.os.Looper
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -68,8 +71,12 @@ fun BenchmarkScreen(onBack: () -> Unit) {
     val variantLoader = rememberLoader(Unit) { services.variants to services.settings.load().detectionVariant }
     var chosenVariant by remember { mutableStateOf<String?>(null) }
     val loadedVariants = (variantLoader.state.value as? Load.Ok)?.value
-    val variantId = chosenVariant
-        ?: loadedVariants?.let { (vs, current) -> if (vs.byId(current) != null) current else vs.default }
+    // A stored resolution that is no longer shipped is not substituted: nothing is selected until the user picks one.
+    val staleVariant = loadedVariants?.let { (vs, current) -> current.takeIf { vs.byId(it) == null } }
+    LaunchedEffect(staleVariant) {
+        if (staleVariant != null) Log.w("Cuentapepas", "La resolución guardada «$staleVariant» ya no está disponible")
+    }
+    val variantId = chosenVariant ?: loadedVariants?.let { (vs, current) -> current.takeIf { vs.byId(it) != null } }
     var progress by remember { mutableStateOf<BenchProgress?>(null) }
     var outcome by remember { mutableStateOf<BenchOutcome?>(null) }
     var shareError by remember { mutableStateOf<String?>(null) }
@@ -83,16 +90,8 @@ fun BenchmarkScreen(onBack: () -> Unit) {
     }
     DisposableEffect(Unit) { onDispose { runner.shutdown() } }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(stringResource(R.string.bench_title)) },
-            navigationIcon = { TextButton(onClick = onBack) { Text(stringResource(R.string.bench_back)) } },
-        )
-    }) { pad ->
-        Column(
-            Modifier.fillMaxSize().padding(pad).padding(16.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+    ScreenScaffold(stringResource(R.string.bench_title), onBack) {
+        run {
             Text(stringResource(R.string.bench_duration), style = MaterialTheme.typography.titleSmall)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 for (m in listOf(1, 5, 15)) {
@@ -105,6 +104,12 @@ fun BenchmarkScreen(onBack: () -> Unit) {
                 }
             }
             Text(stringResource(R.string.bench_variant), style = MaterialTheme.typography.titleSmall)
+            if (staleVariant != null && chosenVariant == null) {
+                Text(
+                    stringResource(R.string.variant_unavailable, staleVariant),
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
             LoadView(variantLoader) { (vs, _) ->
                 VariantSelector(vs, variantId.orEmpty(), onSelect = { chosenVariant = it }, enabled = !running, showNote = false)
             }

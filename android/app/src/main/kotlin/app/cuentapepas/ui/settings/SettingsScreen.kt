@@ -73,7 +73,13 @@ private val FIELDS = listOf(
 
 private const val VARIANT_KEY = "detection.variant"
 
-private class Loaded(val base: AppSettings, val values: Map<String, String>, val variants: ModelVariants)
+private class Loaded(
+    val base: AppSettings,
+    val values: Map<String, String>,
+    val variants: ModelVariants,
+    /** Stored resolution id that this build no longer ships; null when the stored one is valid. */
+    val staleVariant: String?,
+)
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit) {
@@ -83,9 +89,11 @@ fun SettingsScreen(onBack: () -> Unit) {
     val loader = rememberLoader(Unit) {
         val variants = services.variants
         val s = services.settings.load()
-        // A stored resolution that this build no longer ships is shown (and saved) as the default one.
-        val fixed = if (variants.byId(s.detectionVariant) == null) s.copy(detectionVariant = variants.default) else s
-        Loaded(s, fixed.snapshot(), variants)
+        // A stored resolution that this build no longer ships is NOT replaced by the default: nothing is selected
+        // and saving is blocked until the user picks one.
+        val stale = s.detectionVariant.takeIf { variants.byId(it) == null }
+        if (stale != null) Log.w("Cuentapepas", "La resolución guardada «$stale» ya no está disponible")
+        Loaded(s, s.snapshot() + if (stale != null) mapOf(VARIANT_KEY to "") else emptyMap(), variants, stale)
     }
     val snack = remember { SnackbarHostState() }
     val close = stringResource(R.string.snackbar_close)
@@ -96,6 +104,13 @@ fun SettingsScreen(onBack: () -> Unit) {
         LoadView(loader) { loaded ->
             val values = remember(loaded) { mutableStateMapOf<String, String>().apply { putAll(loaded.values) } }
             Text(stringResource(R.string.settings_variant_title), style = MaterialTheme.typography.titleSmall)
+            loaded.staleVariant?.let {
+                Text(
+                    stringResource(R.string.variant_unavailable, it),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
             VariantSelector(loaded.variants, values[VARIANT_KEY].orEmpty(), onSelect = { values[VARIANT_KEY] = it })
             for (f in FIELDS) {
                 val v = values[f.key].orEmpty()
@@ -118,7 +133,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 }
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Button(onClick = {
+                Button(enabled = values[VARIANT_KEY].orEmpty().isNotBlank(), onClick = {
                     scope.launch {
                         try {
                             val normalized = values.mapValues { it.value.trim().replace(',', '.') }
@@ -141,6 +156,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                                 close,
                             )
                         } catch (e: Exception) {
+                            Log.e("Cuentapepas", "No se pudieron guardar los ajustes", e)
                             snack.showError(context.describe(e), close)
                         }
                     }
@@ -154,6 +170,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: Exception) {
+                            Log.e("Cuentapepas", "No se pudieron restablecer los ajustes", e)
                             snack.showError(context.describe(e), close)
                         }
                     }
