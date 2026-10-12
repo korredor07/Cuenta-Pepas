@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 import json
 import sys
 from pathlib import Path
@@ -46,6 +47,9 @@ def _export(args: argparse.Namespace) -> int:
                        ckpt=_repo_path(args.ckpt) if args.ckpt else None, val_dir=_repo_path(args.val_dir),
                        report_dir=_repo_path(args.report_dir) if args.report_dir else None,
                        input_size=parse_input_size(args.input_size))
+    if args.metrics_file:
+        data = json.loads(Path(args.metrics_file).read_text(encoding="utf-8"))
+        cfg = replace(cfg, metrics=data["metrics"], metrics_source=data["source"])
     try:
         report = export(cfg)
     except ExportError as exc:
@@ -61,11 +65,13 @@ def _eval(args: argparse.Namespace) -> int:
     from cuentapepas.evaluate import evaluate_run
 
     run = _repo_path(args.run)
-    metrics = evaluate_run(run, _repo_path(args.ckpt) if args.ckpt else None, args.split, args.max_images,
-                          input_size=_parse_size(args.input_size))
+    metrics = evaluate_run(None if args.metrics_out else run, _repo_path(args.ckpt) if args.ckpt else None, args.split,
+                           args.max_images or None, input_size=_parse_size(args.input_size))
+    if args.metrics_out:
+        Path(args.metrics_out).write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8", newline="\n")
     print(json.dumps({k: metrics[k] for k in ("n_images", "map50", "map50_95", "ap50_per_class", "recall_iou50",
                                               "recall_by_size")}, indent=2))
-    print(f"metrics: {run / 'metrics.json'}")
+    print(f"metrics: {args.metrics_out or run / 'metrics.json'}")
     return 0
 
 
@@ -140,6 +146,7 @@ def main(argv: list[str] | None = None) -> int:
     export_cmd.add_argument("--report-dir", help="where parity.json goes (default: <run>/export with --run, else next to "
                                                  "the checkpoint; never --out, which ships in the APK)")
     export_cmd.add_argument("--input-size", default="384x640", help="static input HxW, multiples of 32")
+    export_cmd.add_argument("--metrics-file", help="JSON {metrics, source} recorded in model.json instead of the run's")
     export_cmd.set_defaults(handler=_export)
 
     var = commands.add_parser("export-variants",
@@ -158,6 +165,7 @@ def main(argv: list[str] | None = None) -> int:
     eval_cmd.add_argument("--split", default="val")
     eval_cmd.add_argument("--max-images", type=int, default=None, help="evaluate an evenly spaced subset (quick checks)")
     eval_cmd.add_argument("--input-size", default="384x640", help="test size HxW, multiples of 32")
+    eval_cmd.add_argument("--metrics-out", help="write the metrics here instead of into the run directory")
     eval_cmd.set_defaults(handler=_eval)
 
     fix = commands.add_parser("fixtures", help="Kotlin parity fixtures (raw_<k>.bin + expected_<k>.json) from a fp32 TFLite")

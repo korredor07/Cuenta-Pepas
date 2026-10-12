@@ -634,29 +634,54 @@ def export(cfg: ExportConfig) -> dict:
 VARIANT_LABELS_ES = {(384, 640): "Normal (rápido)", (544, 960): "Alta", (736, 1280): "Máxima (más lento)"}
 
 
+def _run_isolated(args: list[str], what: str) -> None:
+    """Run `python -I -m cuentapepas.cli <args>` in a fresh interpreter (no TF/torch state shared between variants);
+    its stdout is passed through and a non-zero exit becomes an ExportError carrying the exit code and stderr tail."""
+    env = dict(os.environ, PYTHONUTF8="1")
+    proc = subprocess.run([sys.executable, "-I", "-m", "cuentapepas.cli", *args], env=env, stderr=subprocess.PIPE,
+                          text=True, encoding="utf-8", errors="replace")
+    if proc.returncode != 0:
+        tail = "\n".join(proc.stderr.splitlines()[-40:])
+        raise ExportError(f"{what} failed in its subprocess (exit {proc.returncode}):\n{tail}")
+
+
 def export_variants(run: Path, out: Path, sizes: list[tuple[int, int]], default: tuple[int, int],
                     val_dir: Path = DEFAULT_VAL_DIR, max_images: int | None = 300) -> dict:
     """Export each size into `<out>/r<H>x<W>/` (atomic per variant) with metrics measured at that size, then write
-    `<out>/variants.json` last. Returns {variant id: parity report}."""
-    from cuentapepas.evaluate import evaluate_run
-
+    `<out>/variants.json` last. Eval and export of every variant each run in their own fresh interpreter, so TF /
+    onnx2tf / torch global state never leaks from one variant to the next. Returns {variant id: parity report}."""
     if default not in sizes:
         raise ExportError(f"default size {default} is not among the sizes {sizes}")
     if len(set(sizes)) != len(sizes):
         raise ExportError("duplicate sizes")
+    ckpt = find_checkpoint(run)
+    scratch = _scratch_dir()
     reports = {}
-    for size in sizes:
-        vid = variant_id(size)
-        print(f"[variants] {vid}: eval ({max_images or 'all'} images) ...", flush=True)
-        m = evaluate_run(None, find_checkpoint(run), "val", max_images, input_size=size)
-        measured = {"val_map50": m["map50"], "val_map50_95": m["map50_95"], "val_recall_iou50": m["recall_iou50"],
-                    "val_recall_small": m["recall_by_size"]["small"]["recall"], "val_n_images": m["n_images"]}
-        measured = {k: float(v) for k, v in measured.items() if v is not None}
-        print(f"[variants] {vid}: export ...", flush=True)
-        reports[vid] = export(ExportConfig(out=out / vid, run=run, val_dir=val_dir, report_dir=run / "export" / vid,
-                                           input_size=size, metrics=measured,
-                                           metrics_source=f"eval:val:n={m['n_images']}:{vid}"))
-        reports[vid]["eval"] = m
+    try:
+        for size in sizes:
+            vid = variant_id(size)
+            size_arg = f"{size[0]}x{size[1]}"
+            metrics_path = scratch / f"eval_{vid}.json"
+            print(f"[variants] {vid}: eval ({max_images or 'all'} images) ...", flush=True)
+            _run_isolated(["eval", "--run", str(run), "--ckpt", str(ckpt), "--input-size", size_arg,
+                           "--max-images", str(max_images or 0), "--metrics-out", str(metrics_path)], f"{vid} eval")
+            m = json.loads(metrics_path.read_text(encoding="utf-8"))
+            measured = {"val_map50": m["map50"], "val_map50_95": m["map50_95"],
+                        "val_recall_iou50": m["recall_iou50"],
+                        "val_recall_small": m["recall_by_size"]["small"]["recall"], "val_n_images": m["n_images"]}
+            measured = {k: float(v) for k, v in measured.items() if v is not None}
+            src_path = scratch / f"metrics_{vid}.json"
+            src_path.write_text(json.dumps({"metrics": measured, "source": f"eval:val:n={m['n_images']}:{vid}"}),
+                                encoding="utf-8")
+            report_dir = run / "export" / vid
+            print(f"[variants] {vid}: export ...", flush=True)
+            _run_isolated(["export", "--run", str(run), "--out", str(out / vid), "--val-dir", str(val_dir),
+                           "--report-dir", str(report_dir), "--input-size", size_arg,
+                           "--metrics-file", str(src_path)], f"{vid} export")
+            reports[vid] = json.loads((report_dir / "parity.json").read_text(encoding="utf-8"))
+            reports[vid]["eval"] = m
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
     doc = {"default": variant_id(default),
            "variants": [{"id": variant_id(s), "label_es": VARIANT_LABELS_ES.get(s, variant_id(s)),
                          "input": [s[0], s[1]]} for s in sizes]}
