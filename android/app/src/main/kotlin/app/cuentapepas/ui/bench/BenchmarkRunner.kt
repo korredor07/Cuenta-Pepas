@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.SystemClock
+import android.util.Log
 import app.cuentapepas.core.detect.InputPacker
 import app.cuentapepas.core.detect.Letterbox
 import app.cuentapepas.core.detect.ModelSpec
@@ -121,7 +122,11 @@ class BenchmarkRunner(context: Context) {
         val variants = ModelAssets.loadVariants(appContext)
         val spec = ModelAssets.loadSpec(appContext, variants, variantId)
         val inputs = prepareInputs(spec)
-        val buffers = inputs.buffers
+        val images = inputs.images
+        // ONE reused direct buffer: packing on demand avoids holding one direct float buffer per image.
+        val inputBuffer = ByteBuffer.allocateDirect(InputPacker.outputSize(spec.inputWidth, spec.inputHeight) * 4)
+            .order(ByteOrder.nativeOrder())
+        val floats = FloatArray(InputPacker.outputSize(spec.inputWidth, spec.inputHeight))
         val real = inputs.real
         val post = YoloxPostprocessor(spec.numClasses)
         var monitor: DeviceMonitor? = null
@@ -145,8 +150,10 @@ class BenchmarkRunner(context: Context) {
             var i = 0
             onProgress(BenchProgress(0.0, total, chart.toList(), info.name, real))
             while (!stopFlag.get() && (SystemClock.elapsedRealtimeNanos() - t0) / 1e9 < total) {
+                val img = images[i++ % images.size]
+                packInto(spec, img, floats, inputBuffer)
                 val s = SystemClock.elapsedRealtimeNanos()
-                val raw = detector.run(buffers[i++ % buffers.size])
+                val raw = detector.run(inputBuffer)
                 val e = SystemClock.elapsedRealtimeNanos()
                 post.process(raw, spec.numAnchors, spec.transposed, spec.defaultScoreThreshold, spec.defaultNmsIou, spec.maxDetections)
                 val end = SystemClock.elapsedRealtimeNanos()
@@ -209,7 +216,10 @@ class BenchmarkRunner(context: Context) {
         }
     }
 
-    private class Inputs(val buffers: List<ByteBuffer>, val real: Boolean, val used: Int, val failed: Int)
+    /** Letterbox-resized ARGB pixels of one image (ints, not a per-image direct float buffer). */
+    private class Pixels(val px: IntArray, val w: Int, val h: Int)
+
+    private class Inputs(val images: List<Pixels>, val real: Boolean, val used: Int, val failed: Int)
 
     /**
      * Decodes each bench image once and packs it (top-left letterbox, BGR); synthetic noise when none could be used.
@@ -218,12 +228,13 @@ class BenchmarkRunner(context: Context) {
     private fun prepareInputs(spec: ModelSpec): Inputs {
         val names = appContext.assets.list("bench")
             ?.filter { it.endsWith(".jpg", true) || it.endsWith(".jpeg", true) }?.sorted().orEmpty()
-        val out = ArrayList<ByteBuffer>()
+        val out = ArrayList<Pixels>()
         var failed = 0
         for (n in names) {
             try {
                 val bmp = appContext.assets.open("bench/$n").use { BitmapFactory.decodeStream(it) }
                 if (bmp == null) {
+                    Log.w("Cuentapepas", "Imagen de benchmark no decodificable: $n")
                     failed++
                     continue
                 }
@@ -231,12 +242,14 @@ class BenchmarkRunner(context: Context) {
                 val scaled = Bitmap.createScaledBitmap(bmp, lb.resizedWidth, lb.resizedHeight, true)
                 val px = IntArray(lb.resizedWidth * lb.resizedHeight)
                 scaled.getPixels(px, 0, lb.resizedWidth, 0, 0, lb.resizedWidth, lb.resizedHeight)
-                out.add(pack(spec, px, lb.resizedWidth, lb.resizedHeight))
+                out.add(Pixels(px, lb.resizedWidth, lb.resizedHeight))
                 if (scaled !== bmp) scaled.recycle()
                 bmp.recycle()
             } catch (e: java.io.IOException) {
+                Log.w("Cuentapepas", "Imagen de benchmark ilegible: $n", e)
                 failed++
             } catch (e: RuntimeException) {
+                Log.w("Cuentapepas", "Imagen de benchmark fallida: $n", e)
                 failed++
             }
         }
@@ -244,15 +257,13 @@ class BenchmarkRunner(context: Context) {
         val lb = Letterbox.fit(1280, 720, spec.inputWidth, spec.inputHeight)
         val rnd = Random(42)
         val px = IntArray(lb.resizedWidth * lb.resizedHeight) { rnd.nextInt() or (0xFF shl 24) }
-        return Inputs(listOf(pack(spec, px, lb.resizedWidth, lb.resizedHeight)), false, 0, failed)
+        return Inputs(listOf(Pixels(px, lb.resizedWidth, lb.resizedHeight)), false, 0, failed)
     }
 
-    private fun pack(spec: ModelSpec, px: IntArray, w: Int, h: Int): ByteBuffer {
-        val floats = FloatArray(InputPacker.outputSize(spec.inputWidth, spec.inputHeight))
-        InputPacker.pack(px, w, h, spec.inputWidth, spec.inputHeight, floats, spec.input.padValue.toFloat())
-        val buf = ByteBuffer.allocateDirect(floats.size * 4).order(ByteOrder.nativeOrder())
+    private fun packInto(spec: ModelSpec, img: Pixels, floats: FloatArray, buf: ByteBuffer) {
+        InputPacker.pack(img.px, img.w, img.h, spec.inputWidth, spec.inputHeight, floats, spec.input.padValue.toFloat())
+        buf.clear()
         buf.asFloatBuffer().put(floats)
-        return buf
     }
 
     private companion object {

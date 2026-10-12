@@ -251,8 +251,8 @@ class FileSessionStore(private val root: File, private val clock: () -> Long = S
         val s = readMeta(sessionId)
         check(s.status == SessionStatus.ACTIVE) { "GPS points can only be appended while the session is ACTIVE (${s.status})" }
         for (p in points) {
-            require(p.lat.isFinite() && p.lat in -90.0..90.0) { "lat out of range: ${p.lat}" }
-            require(p.lon.isFinite() && p.lon in -180.0..180.0) { "lon out of range: ${p.lon}" }
+            require(p.lat.isFinite() && p.lat in -90.0..90.0) { "coordenadas fuera de rango" }
+            require(p.lon.isFinite() && p.lon in -180.0..180.0) { "coordenadas fuera de rango" }
             require(p.accuracyM.isFinite()) { "accuracyM must be finite: ${p.accuracyM}" }
         }
         if (points.isEmpty()) return@synchronized

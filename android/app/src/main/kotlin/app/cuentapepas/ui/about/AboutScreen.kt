@@ -118,7 +118,7 @@ fun AboutScreen(onBack: () -> Unit) {
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    Log.e("Cuentapepas", "Diagnóstico falló", e)
+                    Log.e("Cuentapepas", "DiagnÃ³stico fallÃ³", e)
                     diagError = context.getString(R.string.diag_failed, context.describe(e))
                 } finally {
                     diagBusy = false
