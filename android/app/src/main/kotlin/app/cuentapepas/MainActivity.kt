@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import app.cuentapepas.ui.live.HardwareKeys
 import app.cuentapepas.ui.nav.AppNav
 import app.cuentapepas.ui.theme.CuentapepasTheme
@@ -11,6 +12,7 @@ import app.cuentapepas.ui.theme.CuentapepasTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContent {
             CuentapepasTheme {
                 AppNav()

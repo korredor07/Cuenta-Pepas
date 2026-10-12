@@ -1,8 +1,13 @@
+@file:OptIn(ExperimentalLayoutApi::class)
+
 package app.cuentapepas.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -98,12 +103,13 @@ fun SettingsScreen(onBack: () -> Unit) {
                         label = { Text(f.label) },
                         keyboardOptions = KeyboardOptions(
                             keyboardType = if (f.kind == Kind.INTEGER) KeyboardType.Number else KeyboardType.Decimal,
+                            imeAction = if (f === FIELDS.last { it.kind != Kind.FLAG }) ImeAction.Done else ImeAction.Next,
                         ),
                         singleLine = true,
                     )
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Button(onClick = {
                     scope.launch {
                         try {

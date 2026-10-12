@@ -1,9 +1,15 @@
+@file:OptIn(ExperimentalLayoutApi::class)
+
 package app.cuentapepas.ui.newsession
 
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -135,6 +141,7 @@ fun NewSessionScreen(lotId: String, onBack: () -> Unit, onStarted: (sessionId: S
         }
     }
 
+    val focus = androidx.compose.ui.platform.LocalFocusManager.current
     ScreenScaffold(stringResource(R.string.new_title), onBack) {
         modelError?.let { ErrorText(it) }
         error?.let { ErrorText(it) }
@@ -143,11 +150,11 @@ fun NewSessionScreen(lotId: String, onBack: () -> Unit, onStarted: (sessionId: S
             label = { Text(stringResource(R.string.new_row)) },
             isError = rowError,
             supportingText = { if (rowError) Text(stringResource(R.string.new_error_row)) },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
             singleLine = true,
         )
         Text(stringResource(R.string.new_side), style = MaterialTheme.typography.titleSmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             for (s in Side.entries) {
                 FilterChip(selected = side == s, onClick = { side = s }, label = { Text(s.name) })
             }
@@ -157,11 +164,12 @@ fun NewSessionScreen(lotId: String, onBack: () -> Unit, onStarted: (sessionId: S
             label = { Text(stringResource(R.string.new_first_plant)) },
             isError = plantError,
             supportingText = { if (plantError) Text(stringResource(R.string.new_error_plant)) },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }),
             singleLine = true,
         )
         Text(stringResource(R.string.new_direction), style = MaterialTheme.typography.titleSmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             FilterChip(selected = step == 1, onClick = { step = 1 }, label = { Text(stringResource(R.string.new_direction_up)) })
             FilterChip(selected = step == -1, onClick = { step = -1 }, label = { Text(stringResource(R.string.new_direction_down)) })
         }
