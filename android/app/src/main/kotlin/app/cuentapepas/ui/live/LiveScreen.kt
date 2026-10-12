@@ -274,6 +274,7 @@ private fun LiveContent(vm: LiveViewModel, ready: LivePhase.Ready, onRequestFini
             Spacer(Modifier.height(6.dp))
             Row(Modifier.weight(1f).fillMaxWidth()) {
                 Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    DistanceHint()
                     WarningsBanner(hud.warnings)
                     if (hud.paused) PausedBanner()
                     NoticesList(hud.notices, Modifier.widthIn(max = 460.dp))
