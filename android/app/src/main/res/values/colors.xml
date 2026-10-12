@@ -2,4 +2,8 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="brand_ink">#FF010E0B</color>
+    <color name="brand_paper">#FFF8F7F4</color>
+    <color name="brand_green">#FF47B914</color>
+    <color name="window_bg">#FFF8F7F4</color>
 </resources>

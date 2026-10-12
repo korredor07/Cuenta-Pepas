@@ -45,7 +45,7 @@ fun CalibrationScreen(lotId: String, onBack: () -> Unit) {
             Text(d.lotName, style = MaterialTheme.typography.titleLarge)
             val r = d.result
             if (!r.usable || r.n < MIN_SAMPLES) {
-                Text(stringResource(R.string.cal_none_big), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.cal_none_big), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.tertiary)
                 r.reason?.let { Text(it) }
                 Text(stringResource(R.string.cal_samples, r.n, MIN_SAMPLES))
                 Text(stringResource(R.string.cal_how_to))

@@ -64,7 +64,7 @@ fun LotEstimateScreen(lotId: String, onBack: () -> Unit) {
         CorruptSessionsBanner { loader.reload() }
         LoadView(loader) { d ->
             val e = d.estimate
-            d.classNames.noticeRes?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
+            d.classNames.noticeRes?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.tertiary) }
             Text(d.lot.name, style = MaterialTheme.typography.titleLarge)
             Text(
                 stringResource(
@@ -75,7 +75,7 @@ fun LotEstimateScreen(lotId: String, onBack: () -> Unit) {
                     },
                 ),
                 style = MaterialTheme.typography.displaySmall,
-                color = if (e.status == LotStatus.CALIBRATED) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                color = if (e.status == LotStatus.CALIBRATED) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
             )
             Text(Fmt.calibrationStatus(e.calibration.n, e.calibration.usable))
 
@@ -169,12 +169,12 @@ private fun EstimateRange(caption: String, estimate: Estimate?, decimals: Int, s
             Text(stringResource(R.string.chart_range_no_data, caption), style = MaterialTheme.typography.titleSmall)
             return
         }
-        if (!small) Text(Fmt.num(estimate.value, decimals), style = MaterialTheme.typography.displayMedium, color = MaterialTheme.colorScheme.error)
+        if (!small) Text(Fmt.num(estimate.value, decimals), style = MaterialTheme.typography.displayMedium, color = MaterialTheme.colorScheme.tertiary)
         Text(caption, style = MaterialTheme.typography.titleSmall)
         RangeBar(
             estimate, decimals,
             stringResource(R.string.chart_range_desc, caption, Fmt.estimate(estimate, decimals)),
-            color = if (small) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+            color = if (small) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
         )
     }
 }

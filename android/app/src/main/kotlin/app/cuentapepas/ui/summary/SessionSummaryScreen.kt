@@ -1,5 +1,6 @@
 package app.cuentapepas.ui.summary
 
+import app.cuentapepas.ui.theme.brandCardElevation
 import app.cuentapepas.ui.theme.numberStyle
 import android.content.Intent
 import android.net.Uri
@@ -271,7 +272,7 @@ private fun GpsCheck(
         if (id in dismissed) continue
         val other = d.others[id] ?: continue
         val label = gpsLabel(context, other)
-        Card(Modifier.fillMaxWidth()) {
+        Card(Modifier.fillMaxWidth(), elevation = brandCardElevation()) {
             androidx.compose.foundation.layout.Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.gps_check_title), style = MaterialTheme.typography.titleSmall)
                 Text(stringResource(R.string.gps_repeat, label))

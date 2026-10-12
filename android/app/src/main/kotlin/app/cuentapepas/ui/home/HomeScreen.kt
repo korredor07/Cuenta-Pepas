@@ -2,6 +2,7 @@
 
 package app.cuentapepas.ui.home
 
+import app.cuentapepas.ui.theme.brandCardElevation
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -128,7 +129,7 @@ fun HomeScreen(
         LoadView(loader) { rows ->
             if (rows.isEmpty()) Text(stringResource(R.string.home_empty))
             for (row in rows) {
-                Card(Modifier.fillMaxWidth().clickable { onOpenLot(row.lot.id) }) {
+                Card(Modifier.fillMaxWidth().clickable { onOpenLot(row.lot.id) }, elevation = brandCardElevation()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(row.lot.name, style = MaterialTheme.typography.titleMedium)
                         if (row.error != null) {
@@ -169,6 +170,7 @@ private fun StartupNoticeCard(pending: PendingNotices, onDismiss: () -> Unit) {
     Card(
         Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+        elevation = brandCardElevation(),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(R.string.home_notice_title), style = MaterialTheme.typography.titleMedium)
