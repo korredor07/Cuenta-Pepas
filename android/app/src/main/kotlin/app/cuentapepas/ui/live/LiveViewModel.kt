@@ -36,6 +36,7 @@ import app.cuentapepas.device.GpsState
 import app.cuentapepas.device.LocationRecorder
 import app.cuentapepas.inference.FallbackKind
 import app.cuentapepas.inference.FramePreprocessor
+import app.cuentapepas.inference.ModelException
 import app.cuentapepas.inference.ModelInvalidException
 import app.cuentapepas.inference.ModelLoadException
 import app.cuentapepas.inference.ModelMissingException
@@ -90,7 +91,7 @@ sealed interface LivePhase {
      * Counting is impossible ([message] is Spanish, ready to show; never a fake detection). [canAbandon] says whether
      * the session exists and can be closed (marked abandoned) from here.
      */
-    data class Failed(val message: String, val canAbandon: Boolean) : LivePhase
+    data class Failed(val message: String, val canAbandon: Boolean, val variantOffer: VariantOffer? = null) : LivePhase
 
     /** Saving and closing the session. The camera stays bound until the recording is stopped. */
     data object Finishing : LivePhase
@@ -101,6 +102,9 @@ sealed interface LivePhase {
      */
     data class SaveFailed(val message: String) : LivePhase
 }
+
+/** A lower detector resolution the user can switch this session to after the chosen one failed ([LiveViewModel.useVariant]). */
+data class VariantOffer(val variantId: String, val label: String)
 
 /** Low-frequency state shown by the status bar, counts panel, warnings banner and notices. */
 data class LiveHud(
@@ -210,8 +214,68 @@ class LiveViewModel(app: Application, private val sessionId: String) : AndroidVi
 
     private fun str(id: Int, vararg args: Any): String = getApplication<Application>().getString(id, *args)
 
-    private fun fail(message: String, canAbandon: Boolean) {
-        phaseFlow.value = LivePhase.Failed(message, canAbandon)
+    private fun fail(message: String, canAbandon: Boolean, variantOffer: VariantOffer? = null) {
+        phaseFlow.value = LivePhase.Failed(message, canAbandon, variantOffer)
+    }
+
+    /** Detector resolution of this session (from its settings snapshot) while the model is being set up. */
+    private var sessionVariantId: String? = null
+
+    /**
+     * The "Normal" (or otherwise smaller) resolution to offer when [failedId] could not be used; null when none is
+     * smaller (a failing smallest resolution has no cheaper alternative) or the variant list itself is unreadable.
+     */
+    private fun offerFor(failedId: String?): VariantOffer? {
+        if (failedId == null) return null
+        return try {
+            val variants = services.variants
+            val failed = variants.byId(failedId)
+            val alt = variants.saferThan(failedId) ?: return null
+            if (failed != null && alt.inputWidth.toLong() * alt.inputHeight >= failed.inputWidth.toLong() * failed.inputHeight) return null
+            VariantOffer(alt.id, alt.labelEs)
+        } catch (e: ModelException) {
+            Log.e(TAG, "Cannot read the variant list for the fallback offer", e)
+            null
+        }
+    }
+
+    /** A failure of the model on the chosen resolution: the message plus the offer to switch to a lighter one. */
+    private fun failModel(message: String, canAbandon: Boolean) =
+        fail(message, canAbandon, offerFor(sessionVariantId))
+
+    /**
+     * "Usar Normal": after the chosen resolution failed, switches THIS session to [variantId] (the snapshot in the
+     * session record is updated, so the saved session says which resolution counted it) and starts the setup again.
+     * Nothing is switched silently: only this explicit command does it.
+     */
+    fun useVariant(variantId: String) {
+        val failed = phaseFlow.value as? LivePhase.Failed ?: return
+        val offer = failed.variantOffer ?: return
+        if (offer.variantId != variantId) return
+        viewModelScope.launch {
+            commandMutex.withLock {
+                if (phaseFlow.value !is LivePhase.Failed) return@withLock
+                phaseFlow.value = LivePhase.Loading
+                try {
+                    val old = processor
+                    processor = null
+                    if (old != null) withContext(Dispatchers.IO) { old.close() }
+                    val current = store.session(sessionId)
+                    val updated = current.copy(
+                        settings = current.settings + ("detection.variant" to variantId),
+                        modelId = withContext(Dispatchers.IO) { services.modelSpec(variantId).modelId },
+                    )
+                    store.updateSession(updated)
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    Log.e(TAG, "Cannot switch to the $variantId resolution", e)
+                    fail(str(R.string.variant_switch_failed, errText(e)), canAbandon = meta != null)
+                    return@withLock
+                }
+                setup()
+                if (phaseFlow.value is LivePhase.Ready) addSticky(str(R.string.variant_switched_notice, offer.label))
+            }
+        }
     }
 
     /** Spanish text of an exception: unwraps future wrappers, maps timeouts, falls back to the exception text. */
@@ -247,6 +311,7 @@ class LiveViewModel(app: Application, private val sessionId: String) : AndroidVi
             val (spec, settings) = withContext(Dispatchers.IO) {
                 // The session's own snapshot rules, so a run is reproducible whatever the settings screen says today.
                 val s = AppSettings.fromMap(loaded.settings, services.settings.load())
+                sessionVariantId = s.detectionVariant
                 services.modelSpec(s.detectionVariant) to s
             }
             detector = withContext(Dispatchers.Default) { services.detectorFactory(settings.detectionVariant, true) }
@@ -291,12 +356,12 @@ class LiveViewModel(app: Application, private val sessionId: String) : AndroidVi
             // Wait for the detector (bounded); frames before that would all be errors.
             val status = withTimeoutOrNull(MODEL_TIMEOUT_MS) { proc.status.first { it !is ProcessorStatus.Initializing } }
             if (status == null) {
-                fail(str(R.string.live_model_timeout), canAbandon = true)
+                failModel(str(R.string.live_model_timeout), canAbandon = true)
                 return
             }
             if (status is ProcessorStatus.Failed) {
                 Log.e(TAG, "Detector failed to initialise", status.error)
-                fail(describeInitError(status.error), canAbandon = true)
+                failModel(describeInitError(status.error), canAbandon = true)
                 return
             }
             status as ProcessorStatus.Ready
@@ -350,7 +415,8 @@ class LiveViewModel(app: Application, private val sessionId: String) : AndroidVi
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             Log.e(TAG, "Live setup failed", e)
-            fail(describeError(e), canAbandon = meta != null)
+            val modelProblem = e is ModelException || e is ModelOutputInvalidException || e is IllegalArgumentException
+            fail(describeError(e), canAbandon = meta != null, variantOffer = if (modelProblem) offerFor(sessionVariantId) else null)
         } finally {
             detector?.let {
                 try {

@@ -171,6 +171,7 @@ fun LiveScreen(sessionId: String, onFinished: (sessionId: String) -> Unit) {
             is LivePhase.Failed -> ErrorPanel(
                 message = p.message,
                 actions = buildList {
+                    p.variantOffer?.let { o -> add(stringResource(R.string.variant_use, o.label) to { vm.useVariant(o.variantId) }) }
                     if (p.canAbandon) add(stringResource(R.string.live_close_session) to { vm.finish() })
                     add(stringResource(R.string.live_back) to { vm.leaveSaving() })
                 },
