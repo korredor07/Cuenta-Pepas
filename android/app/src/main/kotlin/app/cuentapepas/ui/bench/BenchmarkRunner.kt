@@ -62,6 +62,10 @@ data class BenchSummaryJson(
     val delegate: String,
     @SerialName("fallback_reason") val fallbackReason: String?,
     @SerialName("model_id") val modelId: String,
+    /** Resolution variant that was measured (`variants.json` id, "legacy" for the flat layout). */
+    val variant: String,
+    @SerialName("input_width") val inputWidth: Int,
+    @SerialName("input_height") val inputHeight: Int,
     @SerialName("device_model") val deviceModel: String,
     @SerialName("soc_model") val socModel: String?,
     @SerialName("real_images") val realImages: Boolean,
@@ -100,11 +104,11 @@ class BenchmarkRunner(context: Context) {
         executor.shutdown()
     }
 
-    fun start(durationSec: Int, preferGpu: Boolean, onProgress: (BenchProgress) -> Unit, onFinished: (BenchOutcome) -> Unit) {
+    fun start(durationSec: Int, variantId: String, preferGpu: Boolean, onProgress: (BenchProgress) -> Unit, onFinished: (BenchOutcome) -> Unit) {
         stopFlag.set(false)
         executor.execute {
             val outcome = try {
-                run(durationSec, preferGpu, onProgress)
+                run(durationSec, variantId, preferGpu, onProgress)
             } catch (t: Throwable) {
                 val info = appContext.describeError(t)
                 BenchOutcome.Failed(info.message, info.detail)
@@ -113,9 +117,8 @@ class BenchmarkRunner(context: Context) {
         }
     }
 
-    private fun run(durationSec: Int, preferGpu: Boolean, onProgress: (BenchProgress) -> Unit): BenchOutcome {
+    private fun run(durationSec: Int, variantId: String, preferGpu: Boolean, onProgress: (BenchProgress) -> Unit): BenchOutcome {
         val variants = ModelAssets.loadVariants(appContext)
-        val variantId = variants.default
         val spec = ModelAssets.loadSpec(appContext, variants, variantId)
         val inputs = prepareInputs(spec)
         val buffers = inputs.buffers
@@ -184,6 +187,9 @@ class BenchmarkRunner(context: Context) {
                 delegate = info.name,
                 fallbackReason = info.fallback?.let { f -> f.kind.name + (f.detail?.let { ": $it" } ?: "") },
                 modelId = spec.modelId,
+                variant = variantId,
+                inputWidth = spec.inputWidth,
+                inputHeight = spec.inputHeight,
                 deviceModel = Build.MODEL,
                 socModel = if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL else null,
                 realImages = real,

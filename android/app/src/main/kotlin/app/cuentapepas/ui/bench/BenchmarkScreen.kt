@@ -39,7 +39,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import app.cuentapepas.R
+import app.cuentapepas.ui.common.Load
+import app.cuentapepas.ui.common.LoadView
 import app.cuentapepas.ui.common.describe
+import app.cuentapepas.ui.common.rememberLoader
+import app.cuentapepas.ui.common.services
+import app.cuentapepas.ui.settings.VariantSelector
 import app.cuentapepas.ui.common.ErrorText
 import java.io.File
 import java.util.Locale
@@ -49,11 +54,18 @@ import java.util.Locale
 @Composable
 fun BenchmarkScreen(onBack: () -> Unit) {
     val context = LocalContext.current
+    val services = context.services
     val view = LocalView.current
     val runner = remember { BenchmarkRunner(context) }
     var minutes by remember { mutableIntStateOf(15) }
     var cpuOnly by remember { mutableStateOf(false) }
     var running by remember { mutableStateOf(false) }
+    // Resolution to measure: defaults to the one chosen in Ajustes, changeable here to compare FPS per resolution.
+    val variantLoader = rememberLoader(Unit) { services.variants to services.settings.load().detectionVariant }
+    var chosenVariant by remember { mutableStateOf<String?>(null) }
+    val loadedVariants = (variantLoader.state.value as? Load.Ok)?.value
+    val variantId = chosenVariant
+        ?: loadedVariants?.let { (vs, current) -> if (vs.byId(current) != null) current else vs.default }
     var progress by remember { mutableStateOf<BenchProgress?>(null) }
     var outcome by remember { mutableStateOf<BenchOutcome?>(null) }
     var shareError by remember { mutableStateOf<String?>(null) }
@@ -88,6 +100,10 @@ fun BenchmarkScreen(onBack: () -> Unit) {
                     )
                 }
             }
+            Text(stringResource(R.string.bench_variant), style = MaterialTheme.typography.titleSmall)
+            LoadView(variantLoader) { (vs, _) ->
+                VariantSelector(vs, variantId.orEmpty(), onSelect = { chosenVariant = it }, enabled = !running, showNote = false)
+            }
             Text(stringResource(R.string.bench_delegate), style = MaterialTheme.typography.titleSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
@@ -100,12 +116,13 @@ fun BenchmarkScreen(onBack: () -> Unit) {
                 )
             }
             if (!running) {
-                Button(onClick = {
+                Button(enabled = variantId != null, onClick = {
                     outcome = null
                     progress = null
                     running = true
                     runner.start(
                         durationSec = minutes * 60,
+                        variantId = checkNotNull(variantId),
                         preferGpu = !cpuOnly,
                         onProgress = { mainHandler.post { progress = it } },
                         onFinished = { mainHandler.post { outcome = it; running = false } },
@@ -199,6 +216,7 @@ private fun Results(s: BenchSummaryJson, file: File, onShare: () -> Unit) {
     s.fallbackReason?.let { Text(stringResource(R.string.bench_res_fallback, it)) }
     Text(stringResource(R.string.bench_res_device, listOfNotNull(s.deviceModel, s.socModel).joinToString(" / ")))
     Text(stringResource(R.string.bench_res_model, s.modelId))
+    Text(stringResource(R.string.bench_res_variant, s.variant, s.inputWidth, s.inputHeight))
     Text(stringResource(R.string.bench_res_file, file.name), style = MaterialTheme.typography.labelSmall)
     Button(onClick = onShare) { Text(stringResource(R.string.bench_share)) }
 }
