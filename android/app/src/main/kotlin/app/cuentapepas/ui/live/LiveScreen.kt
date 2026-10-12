@@ -6,6 +6,7 @@ import android.app.Application
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.hardware.display.DisplayManager
 import android.net.Uri
@@ -96,6 +97,14 @@ fun LiveScreen(sessionId: String, onFinished: (sessionId: String) -> Unit) {
             view.keepScreenOn = false
             window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
+    }
+
+    // Only the live screen is landscape; every other screen follows the device. The previous value is restored on exit.
+    DisposableEffect(Unit) {
+        val activity = context.findActivity()
+        val previous = activity?.requestedOrientation
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        onDispose { if (previous != null) activity.requestedOrientation = previous }
     }
 
     // Volume keys -> next plant (MainActivity forwards them while liveScreenActive).
@@ -245,6 +254,8 @@ private fun LiveContent(vm: LiveViewModel, ready: LivePhase.Ready, onRequestFini
             }
         }
         displayManager.registerDisplayListener(listener, null)
+        // The activity may still have been rotating when the camera was bound: resync once with the real rotation.
+        (pv?.display ?: displayManager.getDisplay(Display.DEFAULT_DISPLAY))?.let { vm.camera.setRotation(it.rotation) }
         onDispose { displayManager.unregisterDisplayListener(listener) }
     }
 
