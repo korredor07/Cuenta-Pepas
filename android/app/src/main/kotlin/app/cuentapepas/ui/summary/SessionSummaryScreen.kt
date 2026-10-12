@@ -31,6 +31,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import app.cuentapepas.R
+import app.cuentapepas.core.chart.ChartMath
+import app.cuentapepas.core.count.ClassCounts
 import app.cuentapepas.core.format.Fmt
 import app.cuentapepas.core.session.Geo
 import app.cuentapepas.core.session.GpsPoint
@@ -39,6 +41,11 @@ import app.cuentapepas.core.session.RepeatCheck
 import app.cuentapepas.core.session.SessionMeta
 import app.cuentapepas.core.session.SessionStats
 import app.cuentapepas.core.session.SessionStatus
+import app.cuentapepas.ui.charts.MaturityLegend
+import app.cuentapepas.ui.charts.PercentBar
+import app.cuentapepas.ui.charts.StackedBar
+import app.cuentapepas.ui.charts.StackedBarChart
+import app.cuentapepas.ui.charts.TableToggle
 import app.cuentapepas.ui.common.ErrorText
 import app.cuentapepas.ui.common.LoadView
 import app.cuentapepas.ui.common.ScreenScaffold
@@ -305,77 +312,129 @@ private fun PlantsTable(d: SummaryData, onSaved: (Int) -> Unit, onError: (String
     // Plants observed in zero frames are "no data", never zeros: shown as a dash and left out of the totals.
     val withData = d.plants.filter { it.hasData }
 
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(R.string.summary_col_plant), Modifier.width(64.dp), style = MaterialTheme.typography.labelLarge)
-        d.classNames.forEach { Text(it, Modifier.width(cellW), style = MaterialTheme.typography.labelLarge) }
-        Text(stringResource(R.string.summary_col_total), Modifier.width(cellW), style = MaterialTheme.typography.labelLarge)
-        if (calibration) Text(stringResource(R.string.summary_col_manual), Modifier.width(120.dp), style = MaterialTheme.typography.labelLarge)
-    }
-    HorizontalDivider()
-    for (p in d.plants) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            Text(p.plantNumber.toString(), Modifier.width(64.dp))
-            for (c in 0 until numClasses) Text(if (p.hasData) p.counts[c].toString() else dash, Modifier.width(cellW))
-            Text(if (p.hasData) p.counts.total.toString() else dash, Modifier.width(cellW))
-            if (calibration) {
-                OutlinedTextField(
-                    value = entries[p.plantNumber].orEmpty(),
-                    onValueChange = { entries[p.plantNumber] = it },
-                    modifier = Modifier.width(120.dp),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                )
+    SessionCharts(d, withData)
+    // The exact numbers stay one tap away. Calibration samples keep the table open: the manual-count fields live there.
+    TableToggle(initiallyOpen = calibration) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.summary_col_plant), Modifier.width(64.dp), style = MaterialTheme.typography.labelLarge)
+            d.classNames.forEach { Text(it, Modifier.width(cellW), style = MaterialTheme.typography.labelLarge) }
+            Text(stringResource(R.string.summary_col_total), Modifier.width(cellW), style = MaterialTheme.typography.labelLarge)
+            if (calibration) Text(stringResource(R.string.summary_col_manual), Modifier.width(120.dp), style = MaterialTheme.typography.labelLarge)
+        }
+        HorizontalDivider()
+        for (p in d.plants) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(p.plantNumber.toString(), Modifier.width(64.dp))
+                for (c in 0 until numClasses) Text(if (p.hasData) p.counts[c].toString() else dash, Modifier.width(cellW))
+                Text(if (p.hasData) p.counts.total.toString() else dash, Modifier.width(cellW))
+                if (calibration) {
+                    OutlinedTextField(
+                        value = entries[p.plantNumber].orEmpty(),
+                        onValueChange = { entries[p.plantNumber] = it },
+                        modifier = Modifier.width(120.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                    )
+                }
             }
         }
-    }
-    HorizontalDivider()
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(R.string.summary_total_row), Modifier.width(64.dp), style = MaterialTheme.typography.labelLarge)
-        for (c in 0 until numClasses) {
+        HorizontalDivider()
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.summary_total_row), Modifier.width(64.dp), style = MaterialTheme.typography.labelLarge)
+            for (c in 0 until numClasses) {
+                Text(
+                    if (withData.isEmpty()) dash else withData.sumOf { it.counts[c] }.toString(),
+                    Modifier.width(cellW), style = MaterialTheme.typography.labelLarge,
+                )
+            }
             Text(
-                if (withData.isEmpty()) dash else withData.sumOf { it.counts[c] }.toString(),
+                if (withData.isEmpty()) dash else withData.sumOf { it.counts.total }.toString(),
                 Modifier.width(cellW), style = MaterialTheme.typography.labelLarge,
             )
         }
-        Text(
-            if (withData.isEmpty()) dash else withData.sumOf { it.counts.total }.toString(),
-            Modifier.width(cellW), style = MaterialTheme.typography.labelLarge,
+        if (calibration) {
+            Text(stringResource(R.string.summary_manual_hint), style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(onClick = {
+                // Validate everything first. A blank entry over a saved count is a request to clear it.
+                val changes = ArrayList<Pair<Int, Int>>()
+                val clears = ArrayList<Int>()
+                for (p in d.plants) {
+                    val raw = entries[p.plantNumber]?.trim().orEmpty()
+                    if (raw.isEmpty()) {
+                        if (d.manual[p.plantNumber] != null) clears += p.plantNumber
+                        continue
+                    }
+                    val v = raw.toIntOrNull()?.takeIf { it >= 0 }
+                    if (v == null) {
+                        onError(context.getString(R.string.summary_manual_invalid, p.plantNumber))
+                        return@OutlinedButton
+                    }
+                    if (d.manual[p.plantNumber] != v) changes += p.plantNumber to v
+                }
+                scope.launch {
+                    try {
+                        for ((plant, count) in changes) services.store.setManualCount(d.meta.lotId, d.meta.row, plant, count)
+                        // A cleared field removes the plant's manual count (no count = "sin dato", never 0).
+                        for (plant in clears) services.store.clearManualCount(d.meta.lotId, d.meta.row, plant)
+                        onSaved(changes.size + clears.size)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Saving manual counts failed", e)
+                        onError(context.describe(e))
+                    }
+                }
+            }) { Text(stringResource(R.string.summary_manual_save)) }
+        }
+    }
+}
+
+/**
+ * Charts of a session: visible cherries per plant stacked by maturity (plants seen in zero frames are hatched "sin dato",
+ * never zero bars) and the maturity share of the whole pass.
+ */
+@Composable
+private fun SessionCharts(d: SummaryData, withData: List<PlantRecord>) {
+    val context = LocalContext.current
+    val numClasses = d.plants.first().counts.perClass.size
+    val names = d.classNames
+    fun className(i: Int) = names.getOrElse(i) { "Clase ${i + 1}" }
+    val bars = d.plants.map { p ->
+        val detail = if (p.hasData) {
+            context.getString(
+                R.string.chart_plant_detail, p.plantNumber,
+                (0 until numClasses).joinToString(" · ") { c -> "${className(c)} ${p.counts[c]}" }, p.counts.total,
+            )
+        } else {
+            context.getString(R.string.chart_plant_no_data, p.plantNumber)
+        }
+        StackedBar(p.plantNumber.toString(), if (p.hasData) p.counts.perClass else null, detail)
+    }
+    val totals = withData.map { it.counts.total }
+    val stackedDesc = if (withData.isEmpty()) {
+        context.getString(R.string.chart_stacked_desc_none, d.plants.size)
+    } else {
+        context.getString(
+            R.string.chart_stacked_desc, withData.size, d.plants.size - withData.size,
+            Fmt.num(totals.min().toDouble(), 0), Fmt.num(totals.max().toDouble(), 0),
         )
     }
-    if (calibration) {
-        Text(stringResource(R.string.summary_manual_hint), style = MaterialTheme.typography.bodySmall)
-        OutlinedButton(onClick = {
-            // Validate everything first. A blank entry over a saved count is a request to clear it.
-            val changes = ArrayList<Pair<Int, Int>>()
-            val clears = ArrayList<Int>()
-            for (p in d.plants) {
-                val raw = entries[p.plantNumber]?.trim().orEmpty()
-                if (raw.isEmpty()) {
-                    if (d.manual[p.plantNumber] != null) clears += p.plantNumber
-                    continue
-                }
-                val v = raw.toIntOrNull()?.takeIf { it >= 0 }
-                if (v == null) {
-                    onError(context.getString(R.string.summary_manual_invalid, p.plantNumber))
-                    return@OutlinedButton
-                }
-                if (d.manual[p.plantNumber] != v) changes += p.plantNumber to v
-            }
-            scope.launch {
-                try {
-                    for ((plant, count) in changes) services.store.setManualCount(d.meta.lotId, d.meta.row, plant, count)
-                    // A cleared field removes the plant's manual count (no count = "sin dato", never 0).
-                    for (plant in clears) services.store.clearManualCount(d.meta.lotId, d.meta.row, plant)
-                    onSaved(changes.size + clears.size)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    Log.e(TAG, "Saving manual counts failed", e)
-                    onError(context.describe(e))
-                }
-            }
-        }) { Text(stringResource(R.string.summary_manual_save)) }
+    Text(stringResource(R.string.chart_stacked_title), style = MaterialTheme.typography.titleSmall)
+    StackedBarChart(bars, names, stackedDesc)
+    MaturityLegend(names, showNoData = withData.size < d.plants.size)
+
+    val shareCounts = if (withData.isEmpty()) null else withData.map { it.counts }.reduce(ClassCounts::plus).perClass
+    val fractions = shareCounts?.let { ChartMath.fractions(it) }
+    val shareDesc = if (shareCounts == null || fractions == null) {
+        context.getString(R.string.chart_share_session_none)
+    } else {
+        context.getString(
+            R.string.chart_share_session_desc,
+            (0 until numClasses).joinToString(", ") { c -> "${className(c)} ${Fmt.percent(fractions[c])}" },
+        )
     }
+    Text(stringResource(R.string.chart_share_session_title), style = MaterialTheme.typography.titleSmall)
+    PercentBar(shareCounts, names, shareDesc)
 }
 
 @Composable
