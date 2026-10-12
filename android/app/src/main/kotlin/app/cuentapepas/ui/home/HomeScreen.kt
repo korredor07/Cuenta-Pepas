@@ -105,11 +105,19 @@ fun HomeScreen(
         }
     }
 
-    ScreenScaffold(stringResource(R.string.home_title), onBack = null, snackbar = snack, actions = {
+    ScreenScaffold(stringResource(R.string.home_title), onBack = null, snackbar = snack, showLogo = true, actions = {
         TextButton(onClick = onBench) { Text(stringResource(R.string.home_bench)) }
         TextButton(onClick = onSettings) { Text(stringResource(R.string.home_settings)) }
         TextButton(onClick = onAbout) { Text(stringResource(R.string.home_about)) }
     }) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
+            Text(
+                stringResource(R.string.home_subtitle),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Button(onClick = { showNew = true }) { Text(stringResource(R.string.home_new_lot)) }
         noticeError?.let { ErrorText(it.message, it.detail) }
         if (!pending.isEmpty) {

@@ -4,7 +4,10 @@ import android.os.Bundle
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.ui.graphics.toArgb
+import app.cuentapepas.ui.theme.Brand
 import app.cuentapepas.ui.live.HardwareKeys
 import app.cuentapepas.ui.nav.AppNav
 import app.cuentapepas.ui.theme.CuentapepasTheme
@@ -12,7 +15,7 @@ import app.cuentapepas.ui.theme.CuentapepasTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(Brand.Ink.toArgb()))
         setContent {
             CuentapepasTheme {
                 AppNav()

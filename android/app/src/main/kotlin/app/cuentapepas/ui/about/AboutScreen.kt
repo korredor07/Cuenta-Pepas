@@ -2,6 +2,17 @@ package app.cuentapepas.ui.about
 
 import androidx.compose.material3.MaterialTheme
 import android.util.Log
+import app.cuentapepas.ui.theme.Brand
+import app.cuentapepas.ui.common.CloveranceLogo
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
@@ -85,6 +96,14 @@ fun AboutScreen(onBack: () -> Unit) {
     }
     ScreenScaffold(stringResource(R.string.about_title), onBack) {
         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
+        Row(
+            Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(Brand.Ink).padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            CloveranceLogo(36.dp)
+            Text(stringResource(R.string.about_credit), style = MaterialTheme.typography.bodyMedium, color = Brand.Paper)
+        }
         var diagBusy by remember { mutableStateOf(false) }
         var diagError by remember { mutableStateOf<String?>(null) }
         val scope = rememberCoroutineScope()
