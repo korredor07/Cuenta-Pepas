@@ -2,6 +2,7 @@ package app.cuentapepas.core.detect
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class InputPackerTest {
@@ -58,5 +59,22 @@ class InputPackerTest {
         assertThrows(IllegalArgumentException::class.java) { InputPacker.pack(IntArray(3), 2, 2, 2, 2, out) }
         assertThrows(IllegalArgumentException::class.java) { InputPacker.pack(IntArray(4), 2, 2, 2, 2, FloatArray(11)) }
         assertThrows(IllegalArgumentException::class.java) { InputPacker.pack(IntArray(0), 0, 2, 2, 2, out) }
+    }
+
+    @Test
+    fun fullSizeVariantInputsHaveTheRightSizeAndPadding() {
+        // 1280x720 frame at 736x1280: no right padding, 16 padding rows. 960x540 at 544x960: 4 padding rows.
+        for ((dstW, dstH, w, h) in listOf(listOf(1280, 736, 1280, 720), listOf(960, 544, 960, 540))) {
+            val out = FloatArray(InputPacker.outputSize(dstW, dstH)) { -1f }
+            InputPacker.pack(IntArray(w * h) { 0xFF0000FF.toInt() }, w, h, dstW, dstH, out)
+            assertEquals(dstW * dstH * 3, InputPacker.outputSize(dstW, dstH))
+            assertEquals(listOf(255f, 0f, 0f), out.slice(0 until 3)) // top-left pixel: blue -> B=255
+            val lastImagePx = ((h - 1) * dstW + (w - 1)) * 3
+            assertEquals(listOf(255f, 0f, 0f), out.slice(lastImagePx until lastImagePx + 3))
+            val firstPadRow = h * dstW * 3
+            assertEquals(listOf(114f, 114f, 114f), out.slice(firstPadRow until firstPadRow + 3))
+            assertEquals(114f, out[out.size - 1], 0f)
+            assertTrue(out.none { it == -1f })
+        }
     }
 }

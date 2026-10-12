@@ -99,6 +99,28 @@ class YoloxPostprocessorTest {
         assertEquals(1, d.size); assertEquals(1, d[0].cls)
     }
 
+    @Test fun handlesTheAnchorCountsOfTheLargerVariants() {
+        // Anchors = sum over strides 8/16/32 of (H/s)*(W/s): 544x960 -> 10710, 736x1280 -> 19320.
+        for ((h, w, anchors) in listOf(Triple(544, 960, 10710), Triple(736, 1280, 19320))) {
+            assertEquals(anchors, listOf(8, 16, 32).sumOf { (h / it) * (w / it) })
+            val rows = FloatArray(anchors * 10)
+            fun put(i: Int, cx: Float, cls: Int) {
+                val r = floatArrayOf(cx, 50f, 20f, 20f, 0.9f, 0f, 0f, 0f, 0f, 0f)
+                r[5 + cls] = 0.9f
+                r.copyInto(rows, i * 10)
+            }
+            put(0, 10f, 0); put(anchors / 2, 300f, 2); put(anchors - 1, 700f, 4)
+            val d = pp.process(rows, anchors, false, 0.3f, 0.45f, 300)
+            assertEquals(listOf(0, 2, 4), d.map { it.cls })
+            assertEquals(3, d.size)
+
+            // Same data, transposed layout.
+            val t = FloatArray(rows.size)
+            for (a in 0 until anchors) for (c in 0 until 10) t[c * anchors + a] = rows[a * 10 + c]
+            assertEquals(3, pp.process(t, anchors, true, 0.3f, 0.45f, 300).size)
+        }
+    }
+
     @Test fun returnedDetectionsDoNotAliasInternalBuffers() {
         val first = pp.process(raw(row(50f, 50f, 10f, 10f, 1f, 0.2f, 0.6f, 0.2f, 0f, 0f)), 1, false, 0.1f, 0.45f, 300)
         pp.process(raw(row(80f, 80f, 10f, 10f, 1f, 0f, 0f, 0f, 1f, 0f)), 1, false, 0.1f, 0.45f, 300)

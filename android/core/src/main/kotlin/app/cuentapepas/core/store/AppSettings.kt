@@ -1,6 +1,8 @@
 package app.cuentapepas.core.store
 
 import app.cuentapepas.core.detect.ModelSpec
+import app.cuentapepas.core.detect.ModelVariant
+import app.cuentapepas.core.detect.ModelVariants
 import app.cuentapepas.core.quality.QualityThresholds
 import app.cuentapepas.core.track.TrackerConfig
 
@@ -13,12 +15,15 @@ data class AppSettings(
     val scoreThreshold: Float = 0.30f,
     val nmsIou: Float = 0.45f,
     val gpsMaxAccuracyM: Float = 10f,
+    /** Id of the detector input resolution (a `ModelVariant.id`); part of every session snapshot. */
+    val detectionVariant: String = ModelVariants.LEGACY_ID,
 ) {
     init {
         require(minHits >= 1) { "Los cuadros mínimos para contar deben ser al menos 1 (valor: $minHits)" }
         require(minMeanScore.isFinite() && minMeanScore in 0f..1f) { "La confianza media mínima debe estar entre 0 y 1 (valor: $minMeanScore)" }
         require(scoreThreshold.isFinite() && scoreThreshold in 0f..1f) { "El umbral de confianza debe estar entre 0 y 1 (valor: $scoreThreshold)" }
         require(nmsIou.isFinite() && nmsIou in 0f..1f) { "El umbral IoU debe estar entre 0 y 1 (valor: $nmsIou)" }
+        require(ModelVariant.ID_REGEX.matches(detectionVariant)) { "La resolución de detección no es válida (valor: «$detectionVariant»)" }
         require(gpsMaxAccuracyM.isFinite() && gpsMaxAccuracyM > 0f) { "La precisión GPS máxima debe ser mayor que 0 (valor: $gpsMaxAccuracyM)" }
     }
 
@@ -46,13 +51,18 @@ data class AppSettings(
         "counter.minMeanScore" to minMeanScore.toString(),
         "detect.scoreThreshold" to scoreThreshold.toString(),
         "detect.nmsIou" to nmsIou.toString(),
+        "detection.variant" to detectionVariant,
         "gps.maxAccuracyM" to gpsMaxAccuracyM.toString(),
     )
 
     companion object {
         /** Defaults of the app; the detection thresholds come from the model contract. */
-        fun defaults(spec: ModelSpec): AppSettings =
-            AppSettings(scoreThreshold = spec.defaultScoreThreshold, nmsIou = spec.defaultNmsIou)
+        fun defaults(spec: ModelSpec, variants: ModelVariants = ModelVariants.legacy(spec)): AppSettings =
+            AppSettings(
+                scoreThreshold = spec.defaultScoreThreshold,
+                nmsIou = spec.defaultNmsIou,
+                detectionVariant = variants.default,
+            )
 
         /**
          * Rebuilds settings from a [snapshot] map; keys that are absent keep their value from [base].
@@ -94,6 +104,7 @@ data class AppSettings(
                     scoreThreshold = flt("detect.scoreThreshold", base.scoreThreshold),
                     nmsIou = flt("detect.nmsIou", base.nmsIou),
                     gpsMaxAccuracyM = flt("gps.maxAccuracyM", base.gpsMaxAccuracyM),
+                    detectionVariant = read("detection.variant", base.detectionVariant) { it.trim().takeIf(ModelVariant.ID_REGEX::matches) },
                 )
             } catch (e: IllegalArgumentException) {
                 throw CorruptDataException("settings", e.message ?: "valores fuera de rango", e)

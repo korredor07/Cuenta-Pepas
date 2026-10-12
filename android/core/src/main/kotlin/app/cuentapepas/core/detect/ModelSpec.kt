@@ -9,6 +9,8 @@ import kotlinx.serialization.json.JsonElement
 @Serializable
 data class ModelSpec(
     @SerialName("model_id") val modelId: String,
+    /** Id of the resolution variant this file describes (`variants.json`); absent in the legacy flat layout. */
+    val variant: String? = null,
     @SerialName("taxonomy_schema_version") val taxonomySchemaVersion: Int,
     val classes: List<String>,
     val input: Input,
