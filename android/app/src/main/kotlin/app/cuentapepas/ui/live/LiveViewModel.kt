@@ -246,9 +246,10 @@ class LiveViewModel(app: Application, private val sessionId: String) : AndroidVi
             // Reading assets and settings is disk I/O: off the main thread.
             val (spec, settings) = withContext(Dispatchers.IO) {
                 // The session's own snapshot rules, so a run is reproducible whatever the settings screen says today.
-                services.modelSpec to AppSettings.fromMap(loaded.settings, services.settings.load())
+                val s = AppSettings.fromMap(loaded.settings, services.settings.load())
+                services.modelSpec(s.detectionVariant) to s
             }
-            detector = withContext(Dispatchers.Default) { services.detectorFactory(true) }
+            detector = withContext(Dispatchers.Default) { services.detectorFactory(settings.detectionVariant, true) }
 
             var logger: EvaluationLogger? = null
             if (loaded.evaluationMode) {

@@ -52,7 +52,7 @@ fun AboutScreen(onBack: () -> Unit) {
         }
         if (spec != null) {
             try {
-                val f = ModelAssets.preferredFile(context, spec)
+                val f = ModelAssets.preferredFile(context, services.variants.default, spec)
                 fileLine = context.getString(
                     R.string.about_model_file,
                     f.name,

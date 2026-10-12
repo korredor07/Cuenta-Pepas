@@ -114,7 +114,9 @@ class BenchmarkRunner(context: Context) {
     }
 
     private fun run(durationSec: Int, preferGpu: Boolean, onProgress: (BenchProgress) -> Unit): BenchOutcome {
-        val spec = ModelAssets.loadSpec(appContext)
+        val variants = ModelAssets.loadVariants(appContext)
+        val variantId = variants.default
+        val spec = ModelAssets.loadSpec(appContext, variants, variantId)
         val inputs = prepareInputs(spec)
         val buffers = inputs.buffers
         val real = inputs.real
@@ -123,7 +125,7 @@ class BenchmarkRunner(context: Context) {
         var detector: TfliteDetector? = null
         try {
             monitor = DeviceMonitor(appContext)
-            detector = TfliteDetector(appContext, spec, preferGpu)
+            detector = TfliteDetector(appContext, spec, variantId, preferGpu)
             detector.initialize()
             val info = checkNotNull(detector.delegateInfo)
             val total = durationSec.toDouble()

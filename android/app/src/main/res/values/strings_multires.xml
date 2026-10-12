@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cadenas de las resoluciones de detección (v0.2). -->
+<resources>
+    <string name="variants_invalid">variants.json no es válido: %1$s</string>
+    <string name="variant_unknown">La resolución de detección «%1$s» no existe en esta versión de la app (disponibles: %2$s). Elija otra en Ajustes.</string>
+</resources>

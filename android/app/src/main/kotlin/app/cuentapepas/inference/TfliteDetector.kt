@@ -61,6 +61,8 @@ data class DelegateInfo(val name: String, val fallback: DelegateFallback?)
 class TfliteDetector(
     context: Context,
     val spec: ModelSpec,
+    /** Resolution variant whose asset folder holds the model (see [ModelAssets.variantDir]). */
+    val variantId: String,
     private val preferGpu: Boolean = true,
 ) : AutoCloseable {
 
@@ -91,8 +93,9 @@ class TfliteDetector(
         val fp16 = spec.files.fp16.name
         val fp32 = spec.files.fp32.name
         // fp16 first; fp32 only when the fp16 asset is truly absent. A present-but-unreadable fp16 is an error.
-        modelFileName = if (ModelAssets.exists(appContext, fp16)) fp16 else fp32
-        modelBuffer = ModelAssets.mapModel(appContext, modelFileName) // ModelMissingException if fp32 is missing too
+        val dir = ModelAssets.variantDir(appContext, variantId)
+        modelFileName = if (ModelAssets.exists(appContext, dir, fp16)) fp16 else fp32
+        modelBuffer = ModelAssets.mapModel(appContext, variantId, spec, modelFileName) // ModelMissingException if fp32 is missing too
     }
 
     /** `"GPU"` or `"CPU"`; null until [initialize] has run. */
