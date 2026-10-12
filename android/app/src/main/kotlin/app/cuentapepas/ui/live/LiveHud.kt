@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
+import app.cuentapepas.ui.theme.PlexMonoFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -42,9 +43,9 @@ import app.cuentapepas.ui.charts.drawHatch
 import app.cuentapepas.ui.charts.onColor
 import java.util.Locale
 
-private val HudBackground = Color(0xB3000000)
-private val WarnRed = Color(0xFFC62828)
-private val WarnAmber = Color(0xFFF9A825)
+private val HudBackground = Color(0xB3010E0B) // brand ink, translucent: the camera view stays visible
+private val WarnRed = Color(0xFF9E4B33) // brand brick
+private val WarnAmber = Color(0xFFE09A1E) // brand amber-bright
 
 @Composable
 internal fun className(id: String): String = when (id) {
@@ -124,7 +125,7 @@ internal fun StatusBar(hud: LiveHud, evaluationMode: Boolean, modifier: Modifier
 
 @Composable
 private fun StatusText(text: String, color: Color = Color.White) {
-    Text(text, color = color, fontSize = 13.sp, maxLines = 1)
+    Text(text, color = color, fontSize = 13.sp, fontFamily = PlexMonoFamily, maxLines = 1)
 }
 
 /** Capture-quality warnings, red for speed and blur, amber for light. Nothing is drawn when there are none. */
@@ -221,7 +222,7 @@ private fun CountsBar(label: String, counts: ClassCounts?, classes: List<String>
                 if (counts == null) {
                     Box(Modifier.weight(1f).height(24.dp), contentAlignment = Alignment.Center) {
                         Canvas(Modifier.fillMaxSize()) { drawHatch(Offset.Zero, size, Color(0xFFBDBDBD)) }
-                        Text(dash, color = Color.White, fontSize = 13.sp)
+                        Text(dash, color = Color.White, fontSize = 13.sp, fontFamily = PlexMonoFamily)
                     }
                 } else {
                     val sum = counts.total
@@ -231,14 +232,14 @@ private fun CountsBar(label: String, counts: ClassCounts?, classes: List<String>
                         Box(Modifier.weight(counts[i].toFloat()).height(24.dp).background(bg), contentAlignment = Alignment.Center) {
                             // A number only fits in a segment that holds about 12 % of the bar or more.
                             if (counts[i].toFloat() / sum >= 0.12f) {
-                                Text(counts[i].toString(), color = onColor(bg), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                                Text(counts[i].toString(), color = onColor(bg), fontSize = 12.sp, fontWeight = FontWeight.Medium, fontFamily = PlexMonoFamily, maxLines = 1)
                             }
                         }
                     }
                 }
             }
             Text(
-                total?.toString() ?: dash, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                total?.toString() ?: dash, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Medium, fontFamily = PlexMonoFamily,
                 textAlign = TextAlign.End, maxLines = 1, modifier = Modifier.width(48.dp),
             )
         }
@@ -250,6 +251,6 @@ internal fun PausedBanner(modifier: Modifier = Modifier) {
     Text(
         stringResource(R.string.live_paused),
         color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp,
-        modifier = modifier.clip(RoundedCornerShape(8.dp)).background(Color(0xCC1565C0)).padding(horizontal = 12.dp, vertical = 6.dp),
+        modifier = modifier.clip(RoundedCornerShape(8.dp)).background(Color(0xCC2A700C)).padding(horizontal = 12.dp, vertical = 6.dp),
     )
 }

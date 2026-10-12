@@ -1,5 +1,6 @@
 package app.cuentapepas.ui.charts
 
+import app.cuentapepas.ui.theme.numberStyle
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -35,6 +36,7 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.cuentapepas.R
 import app.cuentapepas.ui.live.classColor
 
@@ -58,9 +60,9 @@ internal class ChartColors(
 internal fun chartColors(): ChartColors {
     val s = MaterialTheme.colorScheme
     return ChartColors(
-        grid = s.onSurface.copy(alpha = 0.14f),
+        grid = s.outlineVariant, // mist
         axisText = s.onSurfaceVariant,
-        outline = s.onSurface.copy(alpha = 0.55f),
+        outline = s.onSurfaceVariant, // ink-soft
         track = s.surfaceVariant,
         noData = s.outline,
         ink = s.onSurface,
@@ -68,7 +70,7 @@ internal fun chartColors(): ChartColors {
 }
 
 @Composable
-internal fun axisTextStyle(color: Color): TextStyle = MaterialTheme.typography.labelSmall.copy(color = color)
+internal fun axisTextStyle(color: Color): TextStyle = numberStyle.copy(fontSize = 11.sp, lineHeight = 14.sp, color = color)
 
 /** Draws [text] anchored at ([x], [y]): [hAlign] 0 = text starts at x, 0.5 = centred, 1 = ends at x; [vAlign] likewise for y. */
 internal fun DrawScope.drawLabel(

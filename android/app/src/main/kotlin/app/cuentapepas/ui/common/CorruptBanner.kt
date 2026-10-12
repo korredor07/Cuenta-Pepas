@@ -1,5 +1,6 @@
 package app.cuentapepas.ui.common
 
+import app.cuentapepas.ui.theme.brandCardElevation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -54,6 +55,7 @@ fun CorruptSessionsBanner(onChanged: () -> Unit = {}) {
             Card(
                 Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                elevation = brandCardElevation(),
             ) {
                 Row(
                     Modifier.padding(horizontal = 16.dp, vertical = 8.dp),

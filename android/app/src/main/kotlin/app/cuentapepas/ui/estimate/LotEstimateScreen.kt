@@ -1,5 +1,6 @@
 package app.cuentapepas.ui.estimate
 
+import app.cuentapepas.ui.theme.numberStyle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
@@ -63,7 +64,7 @@ fun LotEstimateScreen(lotId: String, onBack: () -> Unit) {
         CorruptSessionsBanner { loader.reload() }
         LoadView(loader) { d ->
             val e = d.estimate
-            d.classNames.noticeRes?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
+            d.classNames.noticeRes?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.tertiary) }
             Text(d.lot.name, style = MaterialTheme.typography.titleLarge)
             Text(
                 stringResource(
@@ -74,7 +75,7 @@ fun LotEstimateScreen(lotId: String, onBack: () -> Unit) {
                     },
                 ),
                 style = MaterialTheme.typography.displaySmall,
-                color = if (e.status == LotStatus.CALIBRATED) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                color = if (e.status == LotStatus.CALIBRATED) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
             )
             Text(Fmt.calibrationStatus(e.calibration.n, e.calibration.usable))
 
@@ -117,10 +118,10 @@ fun LotEstimateScreen(lotId: String, onBack: () -> Unit) {
             // The exact numbers behind the charts.
             TableToggle {
                 Text(stringResource(R.string.est_visited, e.plantsVisited))
-                Text(Fmt.coverage(e.plantsVisited, d.lot.totalPlants, e.coverage))
+                Text(Fmt.coverage(e.plantsVisited, d.lot.totalPlants, e.coverage), style = numberStyle)
                 Text(stringResource(vppRes, Fmt.estimateOrNoData(e.visiblePerPlant)))
-                Text(stringResource(R.string.est_total_cherries, Fmt.estimateOrNoData(e.totalCherries, 0)))
-                Text(stringResource(R.string.est_total_kg, Fmt.estimateOrNoData(e.totalKg, 1)))
+                Text(stringResource(R.string.est_total_cherries, Fmt.estimateOrNoData(e.totalCherries, 0)), style = numberStyle)
+                Text(stringResource(R.string.est_total_kg, Fmt.estimateOrNoData(e.totalKg, 1)), style = numberStyle)
                 shares?.forEachIndexed { i, s ->
                     Text("${d.classNames.names.getOrElse(i) { "Clase ${i + 1}" }}: ${Fmt.estimatePercent(s)}")
                 }
@@ -168,12 +169,12 @@ private fun EstimateRange(caption: String, estimate: Estimate?, decimals: Int, s
             Text(stringResource(R.string.chart_range_no_data, caption), style = MaterialTheme.typography.titleSmall)
             return
         }
-        if (!small) Text(Fmt.num(estimate.value, decimals), style = MaterialTheme.typography.displayMedium, color = MaterialTheme.colorScheme.error)
+        if (!small) Text(Fmt.num(estimate.value, decimals), style = MaterialTheme.typography.displayMedium, color = MaterialTheme.colorScheme.tertiary)
         Text(caption, style = MaterialTheme.typography.titleSmall)
         RangeBar(
             estimate, decimals,
             stringResource(R.string.chart_range_desc, caption, Fmt.estimate(estimate, decimals)),
-            color = if (small) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+            color = if (small) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
         )
     }
 }

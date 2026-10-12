@@ -27,6 +27,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import app.cuentapepas.R
+import app.cuentapepas.ui.theme.numberStyle
 import app.cuentapepas.core.chart.ChartMath
 import app.cuentapepas.core.format.Fmt
 import app.cuentapepas.core.stats.Estimate
@@ -64,7 +65,7 @@ fun MaturityShareBars(
             ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(name, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-                    Text(Fmt.percent(e.value), style = MaterialTheme.typography.labelLarge)
+                    Text(Fmt.percent(e.value), style = numberStyle)
                 }
                 Canvas(Modifier.fillMaxWidth().height(22.dp)) {
                     val left = 4.dp.toPx()
@@ -88,7 +89,7 @@ fun MaturityShareBars(
                     drawLine(ink, Offset(px(hi), cy - cap), Offset(px(hi), cy + cap), strokeWidth = 2.dp.toPx())
                 }
                 if (selected == i) {
-                    Text(Fmt.estimatePercent(e), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp))
+                    Text(Fmt.estimatePercent(e), style = numberStyle, modifier = Modifier.padding(top = 2.dp))
                 }
             }
         }

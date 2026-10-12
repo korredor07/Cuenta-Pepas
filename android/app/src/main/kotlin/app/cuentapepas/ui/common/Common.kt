@@ -26,6 +26,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Dp
+import app.cuentapepas.ui.theme.Brand
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -181,6 +188,17 @@ suspend fun SnackbarHostState.showError(message: String, closeLabel: String) {
     showSnackbar(message, actionLabel = closeLabel, withDismissAction = false, duration = SnackbarDuration.Indefinite)
 }
 
+/** Cloverance logo (green and white, designed for a dark background): always shown on ink. */
+@Composable
+fun CloveranceLogo(height: Dp, modifier: Modifier = Modifier) {
+    Image(
+        painterResource(R.drawable.cloverance_logo),
+        contentDescription = stringResource(R.string.cloverance_logo_desc),
+        modifier = modifier.height(height),
+        contentScale = ContentScale.Fit,
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScreenScaffold(
@@ -188,21 +206,39 @@ fun ScreenScaffold(
     onBack: (() -> Unit)?,
     actions: @Composable RowScope.() -> Unit = {},
     snackbar: SnackbarHostState? = null,
+    showLogo: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val host = snackbar ?: remember { SnackbarHostState() }
     val focus = LocalFocusManager.current
+    // Text buttons in the (always dark) app bar read as paper, not as the light-theme primary.
+    val barScheme = MaterialTheme.colorScheme.copy(primary = Brand.Paper)
     // Edge-to-edge: system bars and the keyboard are both reserved (max per side, so the nav bar is not counted twice).
     Scaffold(
         snackbarHost = { SnackbarHost(host) },
         contentWindowInsets = WindowInsets.systemBars.union(WindowInsets.ime),
         topBar = {
         TopAppBar(
-            title = { Text(title) },
+            title = { if (showLogo) CloveranceLogo(30.dp) else Text(title) },
             navigationIcon = {
-                if (onBack != null) TextButton(onClick = onBack) { Text(stringResource(R.string.common_back)) }
+                if (onBack != null) {
+                    MaterialTheme(colorScheme = barScheme, typography = MaterialTheme.typography, shapes = MaterialTheme.shapes) {
+                        TextButton(onClick = onBack) { Text(stringResource(R.string.common_back)) }
+                    }
+                }
             },
-            actions = actions,
+            actions = {
+                MaterialTheme(colorScheme = barScheme, typography = MaterialTheme.typography, shapes = MaterialTheme.shapes) {
+                    actions()
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Brand.Ink,
+                scrolledContainerColor = Brand.Ink,
+                titleContentColor = Brand.Paper,
+                navigationIconContentColor = Brand.Paper,
+                actionIconContentColor = Brand.Paper,
+            ),
         )
     }) { pad ->
         Column(

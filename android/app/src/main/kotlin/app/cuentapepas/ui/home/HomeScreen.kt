@@ -2,6 +2,7 @@
 
 package app.cuentapepas.ui.home
 
+import app.cuentapepas.ui.theme.brandCardElevation
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -104,11 +105,19 @@ fun HomeScreen(
         }
     }
 
-    ScreenScaffold(stringResource(R.string.home_title), onBack = null, snackbar = snack, actions = {
+    ScreenScaffold(stringResource(R.string.home_title), onBack = null, snackbar = snack, showLogo = true, actions = {
         TextButton(onClick = onBench) { Text(stringResource(R.string.home_bench)) }
         TextButton(onClick = onSettings) { Text(stringResource(R.string.home_settings)) }
         TextButton(onClick = onAbout) { Text(stringResource(R.string.home_about)) }
     }) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
+            Text(
+                stringResource(R.string.home_subtitle),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Button(onClick = { showNew = true }) { Text(stringResource(R.string.home_new_lot)) }
         noticeError?.let { ErrorText(it.message, it.detail) }
         if (!pending.isEmpty) {
@@ -128,7 +137,7 @@ fun HomeScreen(
         LoadView(loader) { rows ->
             if (rows.isEmpty()) Text(stringResource(R.string.home_empty))
             for (row in rows) {
-                Card(Modifier.fillMaxWidth().clickable { onOpenLot(row.lot.id) }) {
+                Card(Modifier.fillMaxWidth().clickable { onOpenLot(row.lot.id) }, elevation = brandCardElevation()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(row.lot.name, style = MaterialTheme.typography.titleMedium)
                         if (row.error != null) {
@@ -169,6 +178,7 @@ private fun StartupNoticeCard(pending: PendingNotices, onDismiss: () -> Unit) {
     Card(
         Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+        elevation = brandCardElevation(),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(R.string.home_notice_title), style = MaterialTheme.typography.titleMedium)
