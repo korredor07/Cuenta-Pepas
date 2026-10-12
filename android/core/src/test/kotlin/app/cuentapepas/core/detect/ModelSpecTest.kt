@@ -92,4 +92,16 @@ class ModelSpecTest {
         assertRejected("\"activations\": \"sigmoid_applied\"", "\"activations\": \"logits\"", "output.activations")
 
     @Test fun rejectsBatchOtherThanOne() = assertRejected("\"shape\": [1, 5040, 10]", "\"shape\": [2, 5040, 10]", "output.shape[0]")
+
+    @Test fun variantFieldAndLargerInputsAreGeneric() {
+        val json = exampleJson()
+            .replaceFirst("{", "{\"variant\": \"r544x960\",")
+            .replace("\"width\": 640, \"height\": 384", "\"width\": 960, \"height\": 544")
+            .replace("\"shape\": [1, 5040, 10]", "\"shape\": [1, 10710, 10]")
+        val spec = ModelSpec.parse(json)
+        assertEquals("r544x960", spec.variant)
+        assertEquals(960, spec.inputWidth); assertEquals(544, spec.inputHeight)
+        assertEquals(10710, spec.numAnchors)
+        assertEquals(null, ModelSpec.parse(exampleJson()).variant)
+    }
 }

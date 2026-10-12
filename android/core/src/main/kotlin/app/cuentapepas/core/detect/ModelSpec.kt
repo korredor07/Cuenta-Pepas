@@ -9,6 +9,8 @@ import kotlinx.serialization.json.JsonElement
 @Serializable
 data class ModelSpec(
     @SerialName("model_id") val modelId: String,
+    /** Id of the resolution variant this file describes (`variants.json`); absent in the legacy flat layout. */
+    val variant: String? = null,
     @SerialName("taxonomy_schema_version") val taxonomySchemaVersion: Int,
     val classes: List<String>,
     val input: Input,
@@ -21,6 +23,8 @@ data class ModelSpec(
     @SerialName("license_attribution") val licenseAttribution: String? = null,
     /** Optional export parity report (free-form: text, list or object), shown as-is in the About screen. */
     val parity: JsonElement? = null,
+    /** Optional compact parity summary written by the multi-resolution exporter (free-form), shown in the About screen. */
+    @SerialName("parity_summary") val paritySummary: JsonElement? = null,
     /** Optional known limitations of the model (free-form), shown as-is in the About screen. */
     val limitations: JsonElement? = null,
 ) {

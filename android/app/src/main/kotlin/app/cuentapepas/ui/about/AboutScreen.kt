@@ -63,7 +63,7 @@ fun AboutScreen(onBack: () -> Unit) {
         }
         if (spec != null) {
             try {
-                val f = ModelAssets.preferredFile(context, spec)
+                val f = ModelAssets.preferredFile(context, services.variants.default, spec)
                 fileLine = context.getString(
                     R.string.about_model_file,
                     f.name,
@@ -132,6 +132,7 @@ fun AboutScreen(onBack: () -> Unit) {
                 }
                 spec.licenseAttribution?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             }
+            ModelVariantsAbout()
             Text(stringResource(R.string.about_limits_title), style = MaterialTheme.typography.titleMedium)
             Text(stringResource(R.string.about_limits_text))
             Text(stringResource(R.string.about_licenses_title), style = MaterialTheme.typography.titleMedium)
@@ -142,7 +143,7 @@ fun AboutScreen(onBack: () -> Unit) {
 }
 
 /** Free-form model.json text as lines: strings as they are, arrays as bullets, objects as "key: value". */
-private fun jsonText(e: JsonElement, indent: String = ""): String = when (e) {
+internal fun jsonText(e: JsonElement, indent: String = ""): String = when (e) {
     is JsonNull -> app.cuentapepas.core.format.Fmt.NO_DATA
     is JsonPrimitive -> e.content
     is JsonArray -> e.joinToString("\n") { "$indent• ${jsonText(it, "$indent  ")}" }

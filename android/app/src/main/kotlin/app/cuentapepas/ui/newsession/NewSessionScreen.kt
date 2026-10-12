@@ -85,8 +85,10 @@ fun NewSessionScreen(lotId: String, onBack: () -> Unit, onStarted: (sessionId: S
             try {
                 val rowNo = row.trim().toInt()
                 val plantNo = firstPlant.trim().toInt()
-                val spec = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { services.modelSpec }
                 val settings = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { services.settings.snapshot() }
+                val spec = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    services.modelSpec(settings.getValue("detection.variant"))
+                }
                 val meta = SessionMeta(
                     id = UUID.randomUUID().toString(),
                     lotId = lotId,

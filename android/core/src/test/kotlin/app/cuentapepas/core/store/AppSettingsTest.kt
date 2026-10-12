@@ -1,6 +1,7 @@
 package app.cuentapepas.core.store
 
 import app.cuentapepas.core.detect.ModelSpec
+import app.cuentapepas.core.detect.ModelVariants
 import app.cuentapepas.core.quality.QualityThresholds
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -47,5 +48,25 @@ class AppSettingsTest {
         assertEquals("settings:counter.minHits", e.path)
         kv.m["counter.minHits"] = "0"
         assertThrows(CorruptDataException::class.java) { SettingsRepository(kv, AppSettings()).load() }
+    }
+
+    @Test fun detectionVariantDefaultsFromVariantsRoundTripsAndIsInTheSnapshot() {
+        val variants = ModelVariants.parse(
+            """{"default":"r544x960","variants":[{"id":"r384x640","label_es":"Normal","input":[384,640]},
+               {"id":"r544x960","label_es":"Alta","input":[544,960]}]}""",
+        )
+        val d = AppSettings.defaults(spec, variants)
+        assertEquals("r544x960", d.detectionVariant)
+        assertEquals("r544x960", d.snapshot()["detection.variant"])
+        assertEquals("legacy", AppSettings.defaults(spec).detectionVariant)
+        val repo = SettingsRepository(MemKv(), d)
+        repo.save(d.copy(detectionVariant = "r384x640"))
+        assertEquals("r384x640", repo.load().detectionVariant)
+        // A session snapshot without the key (older app) keeps the base value.
+        val old = d.snapshot() - "detection.variant"
+        assertEquals("r544x960", AppSettings.fromMap(old, d).detectionVariant)
+        assertEquals("r384x640", AppSettings.fromMap(d.snapshot() + ("detection.variant" to "r384x640"), d).detectionVariant)
+        assertThrows(CorruptDataException::class.java) { AppSettings.fromMap(mapOf("detection.variant" to "../x"), d) }
+        assertThrows(CorruptDataException::class.java) { AppSettings.fromMap(mapOf("detection.variant" to ""), d) }
     }
 }
