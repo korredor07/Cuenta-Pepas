@@ -60,9 +60,9 @@ internal class ChartColors(
 internal fun chartColors(): ChartColors {
     val s = MaterialTheme.colorScheme
     return ChartColors(
-        grid = s.onSurface.copy(alpha = 0.14f),
+        grid = s.outlineVariant, // mist
         axisText = s.onSurfaceVariant,
-        outline = s.onSurface.copy(alpha = 0.55f),
+        outline = s.onSurfaceVariant, // ink-soft
         track = s.surfaceVariant,
         noData = s.outline,
         ink = s.onSurface,
