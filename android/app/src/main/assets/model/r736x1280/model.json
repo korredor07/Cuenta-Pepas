@@ -1,0 +1,85 @@
+{
+  "model_id": "cuentapepas-nano-v1",
+  "variant": "r736x1280",
+  "taxonomy_schema_version": 1,
+  "classes": [
+    "green",
+    "semi_ripe",
+    "ripe",
+    "overripe",
+    "dry"
+  ],
+  "input": {
+    "name": "images",
+    "width": 1280,
+    "height": 736,
+    "layout": "NHWC",
+    "dtype": "float32",
+    "channel_order": "BGR",
+    "range": [
+      0,
+      255
+    ],
+    "letterbox": "top_left",
+    "pad_value": 114
+  },
+  "output": {
+    "shape": [
+      1,
+      19320,
+      10
+    ],
+    "layout": [
+      "cx",
+      "cy",
+      "w",
+      "h",
+      "obj",
+      "cls0",
+      "cls1",
+      "cls2",
+      "cls3",
+      "cls4"
+    ],
+    "coords": "input_pixels",
+    "activations": "sigmoid_applied"
+  },
+  "postprocess": {
+    "score": "obj*max(cls)",
+    "default_score_threshold": 0.3,
+    "nms": "class_agnostic_greedy",
+    "default_nms_iou": 0.45,
+    "max_detections": 300
+  },
+  "files": {
+    "fp16": {
+      "name": "cuentapepas_nano_fp16.tflite",
+      "sha256": "fe4d87224471e36662080a229cf55d1ef07298af2ccb1f79a3f518f7ea443de5"
+    },
+    "fp32": {
+      "name": "cuentapepas_nano_fp32.tflite",
+      "sha256": "e5017d653481f52093c1314321e2292dd19b9706f76c5c47c360b71474a994d8"
+    }
+  },
+  "training_run": "runs/20261011T230433Z-cuentapepas_nano",
+  "metrics": {
+    "val_map50": 0.5736198355792652,
+    "val_map50_95": 0.37719167734829123,
+    "val_recall_iou50": 0.8091807328118568,
+    "val_recall_small": 0.7011088709677419,
+    "val_n_images": 300.0
+  },
+  "metrics_source": "eval:val:n=300:r736x1280",
+  "parity_report_sha256": "76a07cfa50130780d7d71d440b0427c01274c7317560cccb4d1e4e6c00f03905",
+  "license_attribution": "Trained on Croppie coffee Uganda (CC BY-SA 4.0) by Producers Direct & Alliance Bioversity-CIAT. YOLOX Apache-2.0.",
+  "parity_summary": {
+    "n_images": 16,
+    "n_ref": 243,
+    "fp16_class_agreement": 1.0,
+    "fp16_mean_best_iou": 0.9988072668245068,
+    "fp16_max_score_delta": 0.004406630992889404,
+    "fp16_max_count_diff": 0,
+    "tflite_fp32_max_box_diff": 0.0003814697265625,
+    "tflite_fp32_max_score_diff": 2.0444393157958984e-05
+  }
+}

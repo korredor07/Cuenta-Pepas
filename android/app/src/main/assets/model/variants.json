@@ -1,0 +1,29 @@
+{
+  "default": "r544x960",
+  "variants": [
+    {
+      "id": "r384x640",
+      "label_es": "Normal (rápido)",
+      "input": [
+        384,
+        640
+      ]
+    },
+    {
+      "id": "r544x960",
+      "label_es": "Alta",
+      "input": [
+        544,
+        960
+      ]
+    },
+    {
+      "id": "r736x1280",
+      "label_es": "Máxima (más lento)",
+      "input": [
+        736,
+        1280
+      ]
+    }
+  ]
+}
