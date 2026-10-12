@@ -1,7 +1,11 @@
+@file:OptIn(ExperimentalLayoutApi::class)
+
 package app.cuentapepas.ui.home
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -62,7 +66,7 @@ fun LotScreen(
             Text(d.lot.name, style = MaterialTheme.typography.headlineSmall)
             Text(stringResource(R.string.lot_total_plants_line, d.lot.totalPlants?.toString() ?: Fmt.NO_DATA))
             Text(stringResource(R.string.lot_cherries_per_kg_line, Fmt.orNoData(d.lot.cherriesPerKg, 0)))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Button(onClick = onNewSession) { Text(stringResource(R.string.lot_new_session)) }
                 OutlinedButton(onClick = onCalibration) { Text(stringResource(R.string.lot_calibration)) }
                 OutlinedButton(onClick = onEstimate) { Text(stringResource(R.string.lot_estimate)) }

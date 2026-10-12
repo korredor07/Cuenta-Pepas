@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalLayoutApi::class)
+
 package app.cuentapepas.ui.summary
 
 import android.content.Intent
@@ -5,10 +7,14 @@ import android.net.Uri
 import android.os.Environment
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
@@ -197,7 +203,7 @@ fun SessionSummaryScreen(sessionId: String, onDone: (lotId: String) -> Unit, onB
             Text(stringResource(R.string.summary_stats_title), style = MaterialTheme.typography.titleMedium)
             StatsBlock(d.stats, d.statsError)
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Button(enabled = !busy, onClick = {
                     busy = true
                     scope.launch {
@@ -265,7 +271,7 @@ private fun GpsCheck(
             androidx.compose.foundation.layout.Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.gps_check_title), style = MaterialTheme.typography.titleSmall)
                 Text(stringResource(R.string.gps_repeat, label))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Button(onClick = { onMark(id) }) { Text(stringResource(R.string.gps_mark_replacement, label)) }
                     OutlinedButton(onClick = { onDistinct(id) }) { Text(stringResource(R.string.gps_distinct)) }
                 }
@@ -305,6 +311,11 @@ private fun PlantsTable(d: SummaryData, onSaved: (Int) -> Unit, onError: (String
     // Plants observed in zero frames are "no data", never zeros: shown as a dash and left out of the totals.
     val withData = d.plants.filter { it.hasData }
 
+    // 360dp cannot hold plant + classes + total + manual columns: the table scrolls sideways as one block.
+    androidx.compose.foundation.layout.Column(
+        Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(R.string.summary_col_plant), Modifier.width(64.dp), style = MaterialTheme.typography.labelLarge)
         d.classNames.forEach { Text(it, Modifier.width(cellW), style = MaterialTheme.typography.labelLarge) }
@@ -322,7 +333,10 @@ private fun PlantsTable(d: SummaryData, onSaved: (Int) -> Unit, onError: (String
                     value = entries[p.plantNumber].orEmpty(),
                     onValueChange = { entries[p.plantNumber] = it },
                     modifier = Modifier.width(120.dp),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = if (p === d.plants.last()) ImeAction.Done else ImeAction.Next,
+                    ),
                     singleLine = true,
                 )
             }
@@ -342,6 +356,7 @@ private fun PlantsTable(d: SummaryData, onSaved: (Int) -> Unit, onError: (String
             Modifier.width(cellW), style = MaterialTheme.typography.labelLarge,
         )
     }
+    } // end scrolling table
     if (calibration) {
         Text(stringResource(R.string.summary_manual_hint), style = MaterialTheme.typography.bodySmall)
         OutlinedButton(onClick = {
