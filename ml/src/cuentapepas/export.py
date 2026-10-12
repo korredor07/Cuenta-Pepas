@@ -34,6 +34,7 @@ EXP_FILE = REPO_ROOT / "ml" / "exps" / "cuentapepas_nano.py"
 DEFAULT_VAL_DIR = REPO_ROOT / "data" / "local" / "processed" / "croppie_v1" / "val"
 DEFAULT_OUT = REPO_ROOT / "android" / "app" / "src" / "main" / "assets" / "model"
 INPUT_H, INPUT_W = 384, 640
+DEFAULT_SIZE = (INPUT_H, INPUT_W)
 PAD_VALUE = 114
 OPSET = 13
 N_PARITY_IMAGES = 16
@@ -64,6 +65,29 @@ class ExportError(RuntimeError):
     pass
 
 
+# ---------------------------------------------------------------- input sizes
+
+def parse_input_size(text: str) -> tuple[int, int]:
+    """`"HxW"` -> (H, W); both must be positive multiples of 32 (strides 8/16/32 stay exact)."""
+    try:
+        h_s, w_s = text.lower().split("x")
+        h, w = int(h_s), int(w_s)
+    except ValueError:
+        raise ExportError(f"invalid input size {text!r}, expected HxW such as 384x640") from None
+    if h <= 0 or w <= 0 or h % 32 or w % 32:
+        raise ExportError(f"invalid input size {text!r}: height and width must be positive multiples of 32")
+    return h, w
+
+
+def anchor_count(size: tuple[int, int]) -> int:
+    h, w = size
+    return sum((h // s) * (w // s) for s in (8, 16, 32))
+
+
+def variant_id(size: tuple[int, int]) -> str:
+    return f"r{size[0]}x{size[1]}"
+
+
 # ---------------------------------------------------------------- inputs
 
 def find_checkpoint(run_dir: Path) -> Path:
@@ -77,8 +101,9 @@ def find_checkpoint(run_dir: Path) -> Path:
     return found[0]
 
 
-def letterbox(image_bgr: np.ndarray) -> np.ndarray:
-    """Preprocessing exactly as the app does it: top-left letterbox into 384x640, pad 114, BGR float32 0..255, HWC."""
+def letterbox(image_bgr: np.ndarray, size: tuple[int, int] = DEFAULT_SIZE) -> np.ndarray:
+    """Preprocessing exactly as the app does it: top-left letterbox into `size` (H, W), pad 114, BGR float32 0..255, HWC."""
+    INPUT_H, INPUT_W = size
     h, w = image_bgr.shape[:2]
     # Same arithmetic as Kotlin: float32 scale, roundToInt = half-up (floor(x + 0.5)), not Python's banker's round().
     r = np.float32(min(INPUT_H / h, INPUT_W / w))
@@ -88,7 +113,7 @@ def letterbox(image_bgr: np.ndarray) -> np.ndarray:
     return canvas.astype(np.float32)
 
 
-def load_parity_images(val_dir: Path, n: int = N_PARITY_IMAGES) -> list[tuple[str, np.ndarray]]:
+def load_parity_images(val_dir: Path, n: int = N_PARITY_IMAGES, size: tuple[int, int] = DEFAULT_SIZE) -> list[tuple[str, np.ndarray]]:
     """`n` evenly spaced val images (sorted by name, so the selection is deterministic), letterboxed HWC float32."""
     files = sorted(val_dir.glob("*.jpg"))
     if len(files) < n:
@@ -99,7 +124,7 @@ def load_parity_images(val_dir: Path, n: int = N_PARITY_IMAGES) -> list[tuple[st
         img = cv2.imread(str(path), cv2.IMREAD_COLOR)
         if img is None:
             raise ExportError(f"cannot read parity image {path}")
-        out.append((path.name, letterbox(img)))
+        out.append((path.name, letterbox(img, size)))
     return out
 
 
@@ -150,13 +175,13 @@ def _import_simplify():
     return simplify
 
 
-def export_onnx(model, onnx_path: Path) -> None:
+def export_onnx(model, onnx_path: Path, size: tuple[int, int] = DEFAULT_SIZE) -> None:
     import onnx
     import torch
 
     simplify = _import_simplify()
 
-    dummy = torch.zeros(1, 3, INPUT_H, INPUT_W)
+    dummy = torch.zeros(1, 3, *size)
     with torch.no_grad():
         torch.onnx.export(model, dummy, str(onnx_path), input_names=["images"], output_names=["output"],
                           opset_version=OPSET, dynamic_axes=None, dynamo=False)
@@ -226,7 +251,7 @@ class OnnxRunner:
 class TfliteRunner:
     """TFLite model with an NHWC float32 input. `transposed` is True when the output is [1, 5+C, N]."""
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, size: tuple[int, int] = DEFAULT_SIZE):
         try:
             from ai_edge_litert.interpreter import Interpreter
         except ImportError:
@@ -239,7 +264,7 @@ class TfliteRunner:
             raise ExportError(f"{path.name}: expected 1 output, got {[o['name'] for o in outputs]}")
         self.output = outputs[0]
         shape = [int(s) for s in self.input["shape"]]
-        if shape != [1, INPUT_H, INPUT_W, 3] or self.input["dtype"] != np.float32:
+        if shape != [1, size[0], size[1], 3] or self.input["dtype"] != np.float32:
             raise ExportError(f"{path.name}: unexpected input {shape} {self.input['dtype']}, want NHWC float32")
         self.output_shape = [int(s) for s in self.output["shape"]]
         self.transposed = self.output_shape[1] < self.output_shape[2]
@@ -421,18 +446,20 @@ def read_metrics(run_dir: Path | None, ckpt: dict) -> tuple[dict[str, float], st
 
 def build_model_json(*, training_run: str | None, metrics: dict, metrics_source: str, parity_report_sha256: str,
                      fp16: Path, fp32: Path, output_shape: list[int],
-                     transposed: bool) -> dict:
+                     transposed: bool, size: tuple[int, int] = DEFAULT_SIZE,
+                     parity_summary: dict | None = None) -> dict:
     taxonomy = load_taxonomy()
     output = {"shape": output_shape,
               "layout": ["cx", "cy", "w", "h", "obj", *(f"cls{i}" for i in range(len(taxonomy.ids)))],
               "coords": "input_pixels", "activations": "sigmoid_applied"}
     if transposed:
         output["transposed"] = True
-    return {
+    model_json = {
         "model_id": MODEL_ID,
+        "variant": variant_id(size),
         "taxonomy_schema_version": taxonomy.schema_version,
         "classes": taxonomy.ids,
-        "input": {"name": "images", "width": INPUT_W, "height": INPUT_H, "layout": "NHWC", "dtype": "float32",
+        "input": {"name": "images", "width": size[1], "height": size[0], "layout": "NHWC", "dtype": "float32",
                   "channel_order": "BGR", "range": [0, 255], "letterbox": "top_left", "pad_value": PAD_VALUE},
         "output": output,
         "postprocess": {"score": "obj*max(cls)", "default_score_threshold": DEFAULT_SCORE_THRESHOLD,
@@ -446,6 +473,19 @@ def build_model_json(*, training_run: str | None, metrics: dict, metrics_source:
         "parity_report_sha256": parity_report_sha256,
         "license_attribution": LICENSE_ATTRIBUTION,
     }
+    if parity_summary is not None:
+        model_json["parity_summary"] = parity_summary
+    return model_json
+
+
+def make_parity_summary(report: dict) -> dict:
+    """Compact parity numbers for model.json (the full report stays out of the APK)."""
+    gate = report["tflite_fp16_detections"][f"{GATE_THRESHOLD:.2f}"]
+    return {"n_images": report["n_images"], "n_ref": gate["n_ref"], "fp16_class_agreement": gate["class_agreement"],
+            "fp16_mean_best_iou": gate["mean_best_iou"], "fp16_max_score_delta": gate["max_score_delta"],
+            "fp16_max_count_diff": gate["max_count_diff"],
+            "tflite_fp32_max_box_diff": report["tflite_fp32_max_abs_diff"]["boxes"],
+            "tflite_fp32_max_score_diff": report["tflite_fp32_max_abs_diff"]["scores"]}
 
 
 # ---------------------------------------------------------------- entry point
@@ -457,6 +497,9 @@ class ExportConfig:
     ckpt: Path | None = None
     val_dir: Path = DEFAULT_VAL_DIR
     report_dir: Path | None = None
+    input_size: tuple[int, int] = DEFAULT_SIZE
+    metrics: dict[str, float] | None = None  # measured at this size; replaces read_metrics (valid for 384x640 only)
+    metrics_source: str | None = None
 
 
 def _scratch_dir() -> Path:
@@ -516,18 +559,21 @@ def export(cfg: ExportConfig) -> dict:
     if not ckpt_path.exists():
         raise ExportError(f"checkpoint not found: {ckpt_path}")
     run_dir = cfg.run if cfg.run is not None else _run_of(ckpt_path)
-    images = load_parity_images(cfg.val_dir)
+    size = cfg.input_size
+    if size[0] <= 0 or size[1] <= 0 or size[0] % 32 or size[1] % 32:
+        raise ExportError(f"input size {size} must be positive multiples of 32")
+    images = load_parity_images(cfg.val_dir, size=size)
 
     work = _scratch_dir()
     try:
         model, ckpt = load_torch_model(ckpt_path)
         onnx_path = work / "cuentapepas_nano.onnx"
         print(f"[export] ONNX opset {OPSET} from {ckpt_path}", flush=True)
-        export_onnx(model, onnx_path)
+        export_onnx(model, onnx_path, size)
         print("[export] onnx2tf ...", flush=True)
         fp32, fp16, flags = onnx_to_tflite(onnx_path, work)
 
-        fp32_run, fp16_run, onnx_run = TfliteRunner(fp32), TfliteRunner(fp16), OnnxRunner(onnx_path)
+        fp32_run, fp16_run, onnx_run = TfliteRunner(fp32, size), TfliteRunner(fp16, size), OnnxRunner(onnx_path)
         try:
             if fp32_run.output_shape != fp16_run.output_shape:
                 raise ExportError(f"fp32/fp16 output shapes differ: {fp32_run.output_shape} vs {fp16_run.output_shape}")
@@ -539,12 +585,19 @@ def export(cfg: ExportConfig) -> dict:
         if problems:
             raise ExportError("parity check failed:\n  " + "\n  ".join(problems) + "\n" + json.dumps(report, indent=2, allow_nan=False))
 
-        metrics, metrics_source = read_metrics(run_dir, ckpt)
+        if cfg.metrics is not None:
+            metrics, metrics_source = cfg.metrics, cfg.metrics_source or "eval"
+        else:
+            metrics, metrics_source = read_metrics(run_dir, ckpt)
+        want = [1, anchor_count(size), 5 + len(load_taxonomy().ids)]
+        got = [1, *fp32_run.output_shape[:0:-1]] if fp32_run.transposed else fp32_run.output_shape
+        if got != want:
+            raise ExportError(f"unexpected output shape {fp32_run.output_shape}, want {want}")
         training_run = _rel(run_dir) if run_dir is not None else None
         out_shape = fp32_run.output_shape
         report.update({
             "checkpoint": _rel(ckpt_path) or str(ckpt_path), "checkpoint_sha256": _sha256(ckpt_path),
-            "metrics_source": metrics_source, "onnx2tf_flags": flags,
+            "metrics_source": metrics_source, "onnx2tf_flags": flags, "variant": variant_id(size),
             "tflite_input": {"name": fp32_run.input["name"], "shape": [int(s) for s in fp32_run.input["shape"]]},
             "tflite_output": {"name": fp32_run.output["name"], "shape": out_shape, "transposed": fp32_run.transposed},
             "tolerances": {"onnx": TOL_ONNX, "tflite_fp32": TOL_TFLITE_FP32, "box_relative": BOX_RTOL,
@@ -561,7 +614,8 @@ def export(cfg: ExportConfig) -> dict:
         parity_path.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n", encoding="utf-8", newline="\n")
         model_json = build_model_json(training_run=training_run, metrics=metrics, metrics_source=metrics_source,
                                       parity_report_sha256=_sha256(parity_path), fp16=fp16, fp32=fp32,
-                                      output_shape=out_shape, transposed=fp32_run.transposed)
+                                      output_shape=out_shape, transposed=fp32_run.transposed, size=size,
+                                      parity_summary=make_parity_summary(report))
         model_json_path = work / "model.json"
         model_json_path.write_text(json.dumps(model_json, indent=2, allow_nan=False) + "\n", encoding="utf-8", newline="\n")
         report["parity_report_path"] = str(parity_path)
@@ -573,3 +627,41 @@ def export(cfg: ExportConfig) -> dict:
             shutil.rmtree(work)
         except OSError as e:
             log.warning("could not remove scratch directory %s: %s", work, e)
+
+
+# ---------------------------------------------------------------- variants
+
+VARIANT_LABELS_ES = {(384, 640): "Normal (rápido)", (544, 960): "Alta", (736, 1280): "Máxima (más lento)"}
+
+
+def export_variants(run: Path, out: Path, sizes: list[tuple[int, int]], default: tuple[int, int],
+                    val_dir: Path = DEFAULT_VAL_DIR, max_images: int | None = 300) -> dict:
+    """Export each size into `<out>/r<H>x<W>/` (atomic per variant) with metrics measured at that size, then write
+    `<out>/variants.json` last. Returns {variant id: parity report}."""
+    from cuentapepas.evaluate import evaluate_run
+
+    if default not in sizes:
+        raise ExportError(f"default size {default} is not among the sizes {sizes}")
+    if len(set(sizes)) != len(sizes):
+        raise ExportError("duplicate sizes")
+    reports = {}
+    for size in sizes:
+        vid = variant_id(size)
+        print(f"[variants] {vid}: eval ({max_images or 'all'} images) ...", flush=True)
+        m = evaluate_run(None, find_checkpoint(run), "val", max_images, input_size=size)
+        measured = {"val_map50": m["map50"], "val_map50_95": m["map50_95"], "val_recall_iou50": m["recall_iou50"],
+                    "val_recall_small": m["recall_by_size"]["small"]["recall"], "val_n_images": m["n_images"]}
+        measured = {k: float(v) for k, v in measured.items() if v is not None}
+        print(f"[variants] {vid}: export ...", flush=True)
+        reports[vid] = export(ExportConfig(out=out / vid, run=run, val_dir=val_dir, report_dir=run / "export" / vid,
+                                           input_size=size, metrics=measured,
+                                           metrics_source=f"eval:val:n={m['n_images']}:{vid}"))
+        reports[vid]["eval"] = m
+    doc = {"default": variant_id(default),
+           "variants": [{"id": variant_id(s), "label_es": VARIANT_LABELS_ES.get(s, variant_id(s)),
+                         "input": [s[0], s[1]]} for s in sizes]}
+    out.mkdir(parents=True, exist_ok=True)
+    tmp = out / "variants.json.part"
+    tmp.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+    os.replace(tmp, out / "variants.json")
+    return reports

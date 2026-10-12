@@ -40,11 +40,12 @@ def _train(args: argparse.Namespace) -> int:
 
 
 def _export(args: argparse.Namespace) -> int:
-    from cuentapepas.export import ExportConfig, ExportError, export
+    from cuentapepas.export import ExportConfig, ExportError, export, parse_input_size
 
     cfg = ExportConfig(out=_repo_path(args.out), run=_repo_path(args.run) if args.run else None,
                        ckpt=_repo_path(args.ckpt) if args.ckpt else None, val_dir=_repo_path(args.val_dir),
-                       report_dir=_repo_path(args.report_dir) if args.report_dir else None)
+                       report_dir=_repo_path(args.report_dir) if args.report_dir else None,
+                       input_size=parse_input_size(args.input_size))
     try:
         report = export(cfg)
     except ExportError as exc:
@@ -60,10 +61,32 @@ def _eval(args: argparse.Namespace) -> int:
     from cuentapepas.evaluate import evaluate_run
 
     run = _repo_path(args.run)
-    metrics = evaluate_run(run, _repo_path(args.ckpt) if args.ckpt else None, args.split, args.max_images)
+    metrics = evaluate_run(run, _repo_path(args.ckpt) if args.ckpt else None, args.split, args.max_images,
+                          input_size=_parse_size(args.input_size))
     print(json.dumps({k: metrics[k] for k in ("n_images", "map50", "map50_95", "ap50_per_class", "recall_iou50",
                                               "recall_by_size")}, indent=2))
     print(f"metrics: {run / 'metrics.json'}")
+    return 0
+
+
+def _parse_size(text: str) -> tuple[int, int]:
+    from cuentapepas.export import parse_input_size
+
+    return parse_input_size(text)
+
+
+def _export_variants(args: argparse.Namespace) -> int:
+    from cuentapepas.export import ExportError, export_variants
+
+    try:
+        sizes = [_parse_size(t) for t in args.sizes.split(",")]
+        reports = export_variants(_repo_path(args.run), _repo_path(args.out), sizes, _parse_size(args.default),
+                                  _repo_path(args.val_dir), args.max_images)
+    except ExportError as exc:
+        print(f"export-variants failed: {exc}", file=sys.stderr)
+        return 1
+    print(json.dumps({k: r["tflite_fp16_detections"] for k, r in reports.items()}, indent=2))
+    print(f"exported to {_repo_path(args.out)}")
     return 0
 
 
@@ -116,13 +139,25 @@ def main(argv: list[str] | None = None) -> int:
                             help="val images used for the parity check")
     export_cmd.add_argument("--report-dir", help="where parity.json goes (default: <run>/export with --run, else next to "
                                                  "the checkpoint; never --out, which ships in the APK)")
+    export_cmd.add_argument("--input-size", default="384x640", help="static input HxW, multiples of 32")
     export_cmd.set_defaults(handler=_export)
+
+    var = commands.add_parser("export-variants",
+                              help="export several input resolutions into <out>/r<H>x<W>/ + variants.json")
+    var.add_argument("--run", required=True)
+    var.add_argument("--out", required=True)
+    var.add_argument("--sizes", default="384x640,544x960,736x1280")
+    var.add_argument("--default", default="544x960")
+    var.add_argument("--val-dir", default="data/local/processed/croppie_v1/val")
+    var.add_argument("--max-images", type=int, default=300, help="val images for the per-size eval")
+    var.set_defaults(handler=_export_variants)
 
     eval_cmd = commands.add_parser("eval", help="COCO mAP, recall and confusion matrix on a split -> runs/<id>/metrics.json")
     eval_cmd.add_argument("--run", required=True, help="training run directory, e.g. runs/<id>")
     eval_cmd.add_argument("--ckpt", help="checkpoint path (default: best_ckpt.pth of the run)")
     eval_cmd.add_argument("--split", default="val")
     eval_cmd.add_argument("--max-images", type=int, default=None, help="evaluate an evenly spaced subset (quick checks)")
+    eval_cmd.add_argument("--input-size", default="384x640", help="test size HxW, multiples of 32")
     eval_cmd.set_defaults(handler=_eval)
 
     fix = commands.add_parser("fixtures", help="Kotlin parity fixtures (raw_<k>.bin + expected_<k>.json) from a fp32 TFLite")

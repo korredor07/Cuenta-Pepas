@@ -237,3 +237,42 @@ def test_install_atomic_removes_backups_on_success(tmp_path):
     export.install_atomic(_install_files(tmp_path), out)
     assert (out / "a.tflite").read_text(encoding="utf-8") == "a.tflite"
     assert not list(out.glob("*.bak")) and not list(out.glob("*.part"))
+
+
+def test_anchor_math_matches_known_sizes():
+    assert export.anchor_count((384, 640)) == 5040
+    assert export.anchor_count((544, 960)) == 68 * 120 + 34 * 60 + 17 * 30 == 10710
+    assert export.anchor_count((736, 1280)) == 92 * 160 + 46 * 80 + 23 * 40 == 19320
+
+
+def test_parse_input_size_validates_multiples_of_32():
+    assert export.parse_input_size("544x960") == (544, 960)
+    for bad in ("540x960", "544x961", "0x64", "-32x64", "544", "axb", "544x960x3"):
+        with pytest.raises(export.ExportError):
+            export.parse_input_size(bad)
+    assert export.variant_id((736, 1280)) == "r736x1280"
+
+
+def test_letterbox_respects_target_size():
+    out = export.letterbox(np.full((720, 1280, 3), 50, dtype=np.uint8), (544, 960))  # r = 0.75 -> 540x960
+    assert out.shape == (544, 960, 3) and np.all(out[:540] == 50) and np.all(out[540:] == 114)
+
+
+def test_model_json_variant_input_and_shape(tmp_path):
+    for name in (export.FP16_NAME, export.FP32_NAME):
+        (tmp_path / name).write_bytes(b"x")
+    mj = export.build_model_json(training_run=None, metrics={}, metrics_source="none", parity_report_sha256="ab" * 32,
+                                 fp16=tmp_path / export.FP16_NAME, fp32=tmp_path / export.FP32_NAME,
+                                 output_shape=[1, 10710, 10], transposed=False, size=(544, 960),
+                                 parity_summary={"n_ref": 3})
+    assert mj["variant"] == "r544x960" and mj["parity_summary"] == {"n_ref": 3}
+    assert (mj["input"]["height"], mj["input"]["width"]) == (544, 960) and mj["output"]["shape"] == [1, 10710, 10]
+    default = export.build_model_json(training_run=None, metrics={}, metrics_source="none", parity_report_sha256="a",
+                                      fp16=tmp_path / export.FP16_NAME, fp32=tmp_path / export.FP32_NAME,
+                                      output_shape=[1, 5040, 10], transposed=False)
+    assert default["variant"] == "r384x640" and default["input"]["width"] == 640
+
+
+def test_cli_rejects_bad_input_size(capsys):
+    with pytest.raises(export.ExportError):
+        main(["export", "--ckpt", "x.pth", "--input-size", "500x640"])

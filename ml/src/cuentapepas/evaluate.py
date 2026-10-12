@@ -22,7 +22,8 @@ os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")  # evaluation never touches th
 import cv2
 import numpy as np
 
-from cuentapepas.export import INPUT_H, INPUT_W, TorchRunner, _sha256, find_checkpoint, letterbox, load_torch_model
+from cuentapepas.export import (DEFAULT_SIZE, TorchRunner, _sha256, find_checkpoint, letterbox, load_torch_model,
+                                variant_id)
 from cuentapepas.postprocess import postprocess
 from cuentapepas.taxonomy import REPO_ROOT
 
@@ -150,7 +151,8 @@ def _git_commit() -> dict:
     return {"commit": git("rev-parse", "HEAD") or None, "dirty": bool(git("status", "--porcelain"))}
 
 
-def run_inference(ckpt: Path, gt: dict, image_dir: Path, max_images: int | None, log=print) -> tuple[dict, list[dict]]:
+def run_inference(ckpt: Path, gt: dict, image_dir: Path, max_images: int | None, log=print,
+                  size: tuple[int, int] = DEFAULT_SIZE) -> tuple[dict, list[dict]]:
     """Detections (original-pixel xywh) for the (optionally subsampled) images; returns the matching GT subset."""
     images = sorted(gt["images"], key=lambda i: i["id"])
     if max_images and max_images < len(images):
@@ -169,8 +171,8 @@ def run_inference(ckpt: Path, gt: dict, image_dir: Path, max_images: int | None,
         if bgr is None:
             raise RuntimeError(f"cannot read {image_dir / img['file_name']}")
         h, w = bgr.shape[:2]
-        r = min(INPUT_H / h, INPUT_W / w)
-        for d in postprocess(runner(letterbox(bgr)), score_threshold=EVAL_SCORE_FLOOR):
+        r = min(size[0] / h, size[1] / w)
+        for d in postprocess(runner(letterbox(bgr, size)), score_threshold=EVAL_SCORE_FLOOR):
             x1, y1, x2, y2 = (v / r for v in d.box)
             x1, y1, x2, y2 = max(x1, 0.0), max(y1, 0.0), min(x2, float(w)), min(y2, float(h))
             if x2 <= x1 or y2 <= y1:
@@ -183,16 +185,18 @@ def run_inference(ckpt: Path, gt: dict, image_dir: Path, max_images: int | None,
 
 
 def evaluate_run(run: Path | None, ckpt: Path | None, split: str = "val", max_images: int | None = None,
-                 dataset: Path = DEFAULT_DATASET) -> dict:
+                 dataset: Path = DEFAULT_DATASET, input_size: tuple[int, int] = DEFAULT_SIZE) -> dict:
     ckpt = ckpt or find_checkpoint(run)
     gt = json.loads((dataset / "annotations" / f"{split}.json").read_text(encoding="utf-8"))
-    sub, dets = run_inference(ckpt, gt, dataset / split, max_images)
+    sub, dets = run_inference(ckpt, gt, dataset / split, max_images, size=input_size)
     metrics = evaluate_detections(sub, dets)
     metrics.update({"split": split, "n_images": len(sub["images"]), "n_detections": len(dets),
                     "ckpt": ckpt.name, "ckpt_sha256": _sha256(ckpt), "git": _git_commit(),
-                    "input_size_hw": [INPUT_H, INPUT_W], "recall_score_threshold": RECALL_SCORE,
+                    "input_size_hw": list(input_size), "variant": variant_id(input_size), "recall_score_threshold": RECALL_SCORE,
                     "match_iou": MATCH_IOU,
                     "val_map50": metrics["map50"], "val_map50_95": metrics["map50_95"]})
     if run is not None:
-        (run / "metrics.json").write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8", newline="\n")
+        # metrics.json feeds the default export, so only the training size may overwrite it.
+        name = "metrics.json" if input_size == DEFAULT_SIZE else f"metrics_{variant_id(input_size)}.json"
+        (run / name).write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8", newline="\n")
     return metrics
