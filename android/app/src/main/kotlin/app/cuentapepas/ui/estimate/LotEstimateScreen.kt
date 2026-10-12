@@ -2,8 +2,6 @@ package app.cuentapepas.ui.estimate
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,6 +19,12 @@ import app.cuentapepas.core.format.Fmt
 import app.cuentapepas.core.session.Lot
 import app.cuentapepas.core.session.PassResolver
 import app.cuentapepas.core.session.Resolution
+import app.cuentapepas.core.stats.Estimate
+import app.cuentapepas.ui.charts.CoverageRing
+import app.cuentapepas.ui.charts.MaturityLegend
+import app.cuentapepas.ui.charts.MaturityShareBars
+import app.cuentapepas.ui.charts.RangeBar
+import app.cuentapepas.ui.charts.TableToggle
 import app.cuentapepas.ui.common.LoadView
 import app.cuentapepas.ui.common.ScreenScaffold
 import app.cuentapepas.ui.common.loadLotData
@@ -75,23 +79,50 @@ fun LotEstimateScreen(lotId: String, onBack: () -> Unit) {
             Text(Fmt.calibrationStatus(e.calibration.n, e.calibration.usable))
 
             // Every figure carries its interval; null stays "sin dato" and is never shown as 0.
-            Text(stringResource(R.string.est_visited, e.plantsVisited))
-            Text(Fmt.coverage(e.plantsVisited, d.lot.totalPlants, e.coverage))
-            val vppRes = if (e.status == LotStatus.CALIBRATED) R.string.est_visible_per_plant_cal else R.string.est_visible_per_plant
-            Text(stringResource(vppRes, Fmt.estimateOrNoData(e.visiblePerPlant)))
-            Text(stringResource(R.string.est_total_cherries, Fmt.estimateOrNoData(e.totalCherries, 0)))
-            Text(stringResource(R.string.est_total_kg, Fmt.estimateOrNoData(e.totalKg, 1)))
+            val calibrated = e.status == LotStatus.CALIBRATED
+            val vppRes = if (calibrated) R.string.est_visible_per_plant_cal else R.string.est_visible_per_plant
+            val vppCaption = stringResource(if (calibrated) R.string.chart_est_visible_caption_cal else R.string.chart_est_visible_caption)
+            val totalCaption = stringResource(R.string.chart_est_total_caption)
+            val kgCaption = stringResource(R.string.chart_est_kg_caption)
+
+            // Headline: the harvest figure when it exists, otherwise the visible cherries per plant (never called harvest).
+            when {
+                e.totalCherries != null -> {
+                    EstimateHeadline(totalCaption, e.totalCherries!!, 0)
+                    e.totalKg?.let { EstimateHeadline(kgCaption, it, 1) }
+                    EstimateRange(vppCaption, e.visiblePerPlant, 1, small = true)
+                }
+                else -> {
+                    EstimateRange(vppCaption, e.visiblePerPlant, 1, small = false)
+                    if (calibrated) Text(stringResource(R.string.est_total_cherries, Fmt.NO_DATA))
+                }
+            }
+
+            CoverageRing(e.plantsVisited, d.lot.totalPlants, e.coverage)
 
             val shares = e.maturityShare
             if (shares == null) {
                 Text(stringResource(R.string.est_maturity_none))
             } else {
                 Text(stringResource(R.string.est_maturity_title), style = MaterialTheme.typography.titleMedium)
-                shares.forEachIndexed { i, s ->
-                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("${d.classNames.names.getOrElse(i) { "Clase ${i + 1}" }}: ${Fmt.estimatePercent(s)}")
-                        LinearProgressIndicator(progress = { s.value.toFloat().coerceIn(0f, 1f) }, Modifier.fillMaxWidth())
-                    }
+                val names = d.classNames.names
+                val desc = stringResource(
+                    R.string.chart_share_lot_desc,
+                    shares.indices.joinToString("; ") { i -> "${names.getOrElse(i) { "Clase ${i + 1}" }} ${Fmt.estimatePercent(shares[i])}" },
+                )
+                MaturityShareBars(shares, names, desc)
+                MaturityLegend(names)
+            }
+
+            // The exact numbers behind the charts.
+            TableToggle {
+                Text(stringResource(R.string.est_visited, e.plantsVisited))
+                Text(Fmt.coverage(e.plantsVisited, d.lot.totalPlants, e.coverage))
+                Text(stringResource(vppRes, Fmt.estimateOrNoData(e.visiblePerPlant)))
+                Text(stringResource(R.string.est_total_cherries, Fmt.estimateOrNoData(e.totalCherries, 0)))
+                Text(stringResource(R.string.est_total_kg, Fmt.estimateOrNoData(e.totalKg, 1)))
+                shares?.forEachIndexed { i, s ->
+                    Text("${d.classNames.names.getOrElse(i) { "Clase ${i + 1}" }}: ${Fmt.estimatePercent(s)}")
                 }
             }
 
@@ -113,5 +144,36 @@ fun LotEstimateScreen(lotId: String, onBack: () -> Unit) {
             Text(stringResource(R.string.est_notes_title), style = MaterialTheme.typography.titleMedium)
             for (note in e.notes) Text(note)
         }
+    }
+}
+
+/** Big number (point value) with its caption and the interval drawn as a [RangeBar]. */
+@Composable
+private fun EstimateHeadline(caption: String, estimate: Estimate, decimals: Int) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(Fmt.num(estimate.value, decimals), style = MaterialTheme.typography.displayMedium, color = MaterialTheme.colorScheme.primary)
+        Text(caption, style = MaterialTheme.typography.titleSmall)
+        RangeBar(
+            estimate, decimals,
+            stringResource(R.string.chart_range_desc, caption, Fmt.estimate(estimate, decimals)),
+        )
+    }
+}
+
+/** Estimate shown as a range bar only (visible cherries per plant); null is "sin dato", never an empty or zero bar. */
+@Composable
+private fun EstimateRange(caption: String, estimate: Estimate?, decimals: Int, small: Boolean) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        if (estimate == null) {
+            Text(stringResource(R.string.chart_range_no_data, caption), style = MaterialTheme.typography.titleSmall)
+            return
+        }
+        if (!small) Text(Fmt.num(estimate.value, decimals), style = MaterialTheme.typography.displayMedium, color = MaterialTheme.colorScheme.error)
+        Text(caption, style = MaterialTheme.typography.titleSmall)
+        RangeBar(
+            estimate, decimals,
+            stringResource(R.string.chart_range_desc, caption, Fmt.estimate(estimate, decimals)),
+            color = if (small) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+        )
     }
 }

@@ -1,11 +1,14 @@
 package app.cuentapepas.ui.live
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -15,13 +18,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -33,6 +38,8 @@ import app.cuentapepas.core.count.ClassCounts
 import app.cuentapepas.core.live.ThermalSeverity
 import app.cuentapepas.core.quality.QualityWarning
 import app.cuentapepas.device.GpsState
+import app.cuentapepas.ui.charts.drawHatch
+import app.cuentapepas.ui.charts.onColor
 import java.util.Locale
 
 private val HudBackground = Color(0xB3000000)
@@ -154,9 +161,12 @@ internal fun NoticesList(notices: List<String>, modifier: Modifier = Modifier) {
 }
 
 /**
- * Counts table: one row per class with the current plant and the whole route (recorrido), then the totals.
+ * Counts panel: a compact horizontal stacked bar (one segment per maturity class, same colours as the overlay) for the
+ * current plant and another for the whole pass (recorrido), each with its total at the right. Numbers sit on the
+ * segments that are wide enough. A bar without data is hatched with "—", never an empty (zero) bar.
  * The label is always "Pepas visibles": these are visible cherries, not an estimate of the harvest.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun CountsPanel(
     classes: List<String>,
@@ -165,40 +175,22 @@ internal fun CountsPanel(
     routeCounts: ClassCounts?,
     modifier: Modifier = Modifier,
 ) {
-    val dash = stringResource(R.string.live_no_data)
-    val numberWidth = 62.dp
+    val plantLabel = if (plantNumber != null) stringResource(R.string.live_plant, plantNumber) else stringResource(R.string.live_no_plant)
+    val routeLabel = stringResource(R.string.live_route)
     Column(
         modifier.clip(RoundedCornerShape(8.dp)).background(HudBackground).padding(8.dp).verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Spacer(Modifier.weight(1f))
-            Text(
-                if (plantNumber != null) stringResource(R.string.live_plant, plantNumber) else stringResource(R.string.live_no_plant),
-                color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, maxLines = 1,
-                modifier = Modifier.width(numberWidth),
-            )
-            Text(
-                stringResource(R.string.live_route),
-                color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End, maxLines = 1,
-                modifier = Modifier.width(numberWidth),
-            )
-        }
-        HorizontalDivider(Modifier.padding(vertical = 3.dp), color = Color(0x66FFFFFF))
-        for ((i, id) in classes.withIndex()) {
-            Row(Modifier.padding(vertical = 1.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(11.dp).clip(CircleShape).background(classColor(i)))
-                Text(className(id), color = Color.White, fontSize = 13.sp, maxLines = 1, modifier = Modifier.padding(start = 6.dp).weight(1f))
-                CountCell(plantCounts?.let { it[i].toString() } ?: dash, numberWidth, bold = false)
-                CountCell(routeCounts?.let { it[i].toString() } ?: dash, numberWidth, bold = false)
+        CountsBar(plantLabel, plantCounts, classes)
+        CountsBar(routeLabel, routeCounts, classes)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            for ((i, id) in classes.withIndex()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(10.dp).clip(CircleShape).background(classColor(i)))
+                    Text(className(id), color = Color.White, fontSize = 11.sp, maxLines = 1, modifier = Modifier.padding(start = 4.dp))
+                }
             }
         }
-        HorizontalDivider(Modifier.padding(vertical = 3.dp), color = Color(0x66FFFFFF))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.live_total), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            CountCell(plantCounts?.total?.toString() ?: dash, numberWidth, bold = true)
-            CountCell(routeCounts?.total?.toString() ?: dash, numberWidth, bold = true)
-        }
-        Spacer(Modifier.height(4.dp))
         Text(
             stringResource(R.string.live_visible),
             color = Color(0xFFE0E0E0), fontSize = 12.sp, fontStyle = FontStyle.Italic,
@@ -208,12 +200,49 @@ internal fun CountsPanel(
 }
 
 @Composable
-private fun CountCell(text: String, width: androidx.compose.ui.unit.Dp, bold: Boolean) {
-    Text(
-        text, color = Color.White, fontSize = if (bold) 18.sp else 15.sp,
-        fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
-        textAlign = TextAlign.End, maxLines = 1, modifier = Modifier.width(width),
-    )
+private fun CountsBar(label: String, counts: ClassCounts?, classes: List<String>) {
+    val dash = stringResource(R.string.live_no_data)
+    val total = counts?.total
+    val names = classes.map { className(it) }
+    val desc = if (counts == null) {
+        stringResource(R.string.chart_hud_bar_desc, label, dash)
+    } else {
+        stringResource(
+            R.string.chart_hud_bar_desc, label,
+            counts.perClass.indices.joinToString(", ") { "${names.getOrElse(it) { "Clase ${it + 1}" }} ${counts[it]}" } + ", total $total",
+        )
+    }
+    Column(Modifier.semantics { contentDescription = desc }) {
+        Text(label, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.weight(1f).height(24.dp).clip(RoundedCornerShape(5.dp)).background(Color(0x33FFFFFF)),
+            ) {
+                if (counts == null) {
+                    Box(Modifier.weight(1f).height(24.dp), contentAlignment = Alignment.Center) {
+                        Canvas(Modifier.fillMaxSize()) { drawHatch(Offset.Zero, size, Color(0xFFBDBDBD)) }
+                        Text(dash, color = Color.White, fontSize = 13.sp)
+                    }
+                } else {
+                    val sum = counts.total
+                    for (i in counts.perClass.indices) {
+                        if (counts[i] <= 0) continue
+                        val bg = classColor(i)
+                        Box(Modifier.weight(counts[i].toFloat()).height(24.dp).background(bg), contentAlignment = Alignment.Center) {
+                            // A number only fits in a segment that holds about 12 % of the bar or more.
+                            if (counts[i].toFloat() / sum >= 0.12f) {
+                                Text(counts[i].toString(), color = onColor(bg), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                            }
+                        }
+                    }
+                }
+            }
+            Text(
+                total?.toString() ?: dash, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.End, maxLines = 1, modifier = Modifier.width(48.dp),
+            )
+        }
+    }
 }
 
 @Composable

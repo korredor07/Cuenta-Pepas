@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Gráficos (v0.2) -->
+    <string name="chart_table_show">Ver tabla ▼</string>
+    <string name="chart_table_hide">Ocultar tabla ▲</string>
+    <string name="chart_tap_bar_hint">Toque una barra para ver los valores exactos.</string>
+    <string name="chart_tap_point_hint">Toque un punto para ver sus valores.</string>
+    <string name="chart_tap_row_hint">Toque una fila para ver el valor y su intervalo.</string>
+    <string name="chart_legend_no_data">Sin dato</string>
+    <string name="chart_legend_ci">Barra fina con topes: intervalo de confianza 90 %.</string>
+
+    <!-- Resumen del recorrido -->
+    <string name="chart_stacked_title">Pepas visibles por planta</string>
+    <string name="chart_stacked_desc">Gráfico de barras apiladas por madurez: pepas visibles por planta. %1$d plantas con dato y %2$d sin dato. Total por planta de %3$s a %4$s.</string>
+    <string name="chart_stacked_desc_none">Gráfico de barras: ninguna planta tiene dato (%1$d sin dato).</string>
+    <string name="chart_plant_detail">Planta %1$d: %2$s · total %3$d</string>
+    <string name="chart_plant_no_data">Planta %1$d: sin dato (no se observó en ningún cuadro)</string>
+    <string name="chart_share_session_title">Proporción de madurez del recorrido</string>
+    <string name="chart_share_session_desc">Barra de proporción de madurez de las pepas visibles del recorrido: %1$s.</string>
+    <string name="chart_share_session_none">Proporción de madurez: sin dato (no se contó ninguna pepa visible).</string>
+    <string name="chart_share_segment_detail">%1$s: %2$d pepas (%3$s)</string>
+    <string name="chart_visible_label">Pepas visibles</string>
+
+    <!-- Estimación del lote -->
+    <string name="chart_est_visible_caption">pepas visibles por planta (no es cosecha)</string>
+    <string name="chart_est_visible_caption_cal">pepas visibles por planta</string>
+    <string name="chart_est_total_caption">pepas totales estimadas</string>
+    <string name="chart_est_kg_caption">kg estimados</string>
+    <string name="chart_range_desc">%1$s: %2$s.</string>
+    <string name="chart_range_no_data">%1$s: sin dato.</string>
+    <string name="chart_coverage_center">%1$d de %2$d</string>
+    <string name="chart_coverage_unit">plantas</string>
+    <string name="chart_coverage_desc">Anillo de cobertura. %1$s.</string>
+    <string name="chart_coverage_visited_only">%1$d plantas recorridas</string>
+    <string name="chart_share_lot_title">Proporción de madurez (IC 90 %)</string>
+    <string name="chart_share_lot_desc">Barras de proporción de madurez de las pepas visibles con su intervalo de confianza: %1$s.</string>
+    <string name="chart_share_row_desc">%1$s: %2$s</string>
+
+    <!-- Calibración -->
+    <string name="chart_scatter_title">Conteo manual contra pepas visibles</string>
+    <string name="chart_scatter_x">Pepas visibles (detector)</string>
+    <string name="chart_scatter_y">Conteo manual</string>
+    <string name="chart_scatter_line">Recta y = k·x</string>
+    <string name="chart_scatter_band">IC 90 % de k</string>
+    <string name="chart_scatter_point">Planta %1$s: visibles %2$d, manual %3$d</string>
+    <string name="chart_scatter_desc">Gráfico de dispersión de %1$d plantas de muestra: conteo manual contra pepas visibles. %2$s</string>
+    <string name="chart_scatter_desc_line">Recta ajustada y = k·x con k = %1$s.</string>
+    <string name="chart_scatter_desc_noline">Sin recta ajustada.</string>
+    <string name="chart_k_title">Factor k con su intervalo</string>
+    <string name="chart_k_caption">pepas totales por pepa visible</string>
+
+    <!-- Lote: recorridos -->
+    <string name="chart_lot_sessions_title">Pepas visibles por recorrido</string>
+    <string name="chart_session_detail">Surco %1$d, lado %2$s · %3$s: %4$s · total %5$d</string>
+    <string name="chart_session_no_data">Surco %1$d, lado %2$s · %3$s: sin dato</string>
+    <string name="chart_lot_sessions_desc">Gráfico de barras: pepas visibles por recorrido completado, %1$d recorridos.</string>
+
+    <!-- Panel de conteo en vivo -->
+    <string name="chart_hud_bar_desc">%1$s: %2$s</string>
+</resources>
