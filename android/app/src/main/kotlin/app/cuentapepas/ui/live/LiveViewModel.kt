@@ -240,8 +240,24 @@ class LiveViewModel(app: Application, private val sessionId: String) : AndroidVi
     }
 
     /** A failure of the model on the chosen resolution: the message plus the offer to switch to a lighter one. */
-    private fun failModel(message: String, canAbandon: Boolean) =
-        fail(message, canAbandon, offerFor(sessionVariantId))
+    private fun failModel(message: String, canAbandon: Boolean, offer: Boolean) =
+        fail(message, canAbandon, if (offer) offerFor(sessionVariantId) else null)
+
+    /** True for failures that a lighter resolution could plausibly fix (model files / model output), nothing else. */
+    private fun isModelProblem(e: Throwable) = e is ModelException || e is ModelOutputInvalidException
+
+    /** Detaches and closes the frame processor so a failed setup never leaves a live one behind. */
+    private suspend fun releaseFailedProcessor() {
+        val proc = processor ?: return
+        processor = null
+        withContext(Dispatchers.IO) {
+            try {
+                proc.close()
+            } catch (e: Exception) {
+                Log.e(TAG, "Releasing the frame processor after a failed setup failed", e)
+            }
+        }
+    }
 
     /**
      * "Usar Normal": after the chosen resolution failed, switches THIS session to [variantId] (the snapshot in the
@@ -269,10 +285,17 @@ class LiveViewModel(app: Application, private val sessionId: String) : AndroidVi
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
                     Log.e(TAG, "Cannot switch to the $variantId resolution", e)
-                    fail(str(R.string.variant_switch_failed, errText(e)), canAbandon = meta != null)
+                    fail(failed.message + "\n\n" + str(R.string.variant_switch_failed, errText(e)), canAbandon = meta != null)
                     return@withLock
                 }
                 setup()
+                val after = phaseFlow.value
+                if (after is LivePhase.Failed) {
+                    // Both resolutions failed: say so, with both messages.
+                    phaseFlow.value = after.copy(
+                        message = failed.message + "\n\n" + str(R.string.variant_alt_also_failed, offer.label, after.message),
+                    )
+                }
                 if (phaseFlow.value is LivePhase.Ready) addSticky(str(R.string.variant_switched_notice, offer.label))
             }
         }
@@ -356,12 +379,14 @@ class LiveViewModel(app: Application, private val sessionId: String) : AndroidVi
             // Wait for the detector (bounded); frames before that would all be errors.
             val status = withTimeoutOrNull(MODEL_TIMEOUT_MS) { proc.status.first { it !is ProcessorStatus.Initializing } }
             if (status == null) {
-                failModel(str(R.string.live_model_timeout), canAbandon = true)
+                releaseFailedProcessor()
+                failModel(str(R.string.live_model_timeout), canAbandon = true, offer = false)
                 return
             }
             if (status is ProcessorStatus.Failed) {
                 Log.e(TAG, "Detector failed to initialise", status.error)
-                failModel(describeInitError(status.error), canAbandon = true)
+                releaseFailedProcessor()
+                failModel(describeInitError(status.error), canAbandon = true, offer = isModelProblem(status.error))
                 return
             }
             status as ProcessorStatus.Ready
@@ -382,6 +407,7 @@ class LiveViewModel(app: Application, private val sessionId: String) : AndroidVi
                 PlantLog(sessionId, loaded.firstPlant, loaded.plantStep, now)
             } catch (e: IllegalArgumentException) {
                 Log.e(TAG, "Invalid plant numbering in session $sessionId", e)
+                releaseFailedProcessor()
                 fail(str(R.string.live_session_invalid, e.message ?: ""), canAbandon = true)
                 return
             }
@@ -415,8 +441,8 @@ class LiveViewModel(app: Application, private val sessionId: String) : AndroidVi
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             Log.e(TAG, "Live setup failed", e)
-            val modelProblem = e is ModelException || e is ModelOutputInvalidException || e is IllegalArgumentException
-            fail(describeError(e), canAbandon = meta != null, variantOffer = if (modelProblem) offerFor(sessionVariantId) else null)
+            releaseFailedProcessor()
+            fail(describeError(e), canAbandon = meta != null, variantOffer = if (isModelProblem(e)) offerFor(sessionVariantId) else null)
         } finally {
             detector?.let {
                 try {
@@ -500,6 +526,9 @@ class LiveViewModel(app: Application, private val sessionId: String) : AndroidVi
     private fun refreshNotices() {
         hudFlow.update { it.copy(notices = buildNotices(frameFlow.value)) }
     }
+
+    /** Lets the screen post a standing notice (e.g. the orientation could not be changed). */
+    fun postNotice(message: String) = addSticky(message)
 
     private fun addSticky(message: String) {
         if (message !in sticky) sticky = sticky + message

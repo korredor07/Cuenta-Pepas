@@ -8,6 +8,7 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.util.Log
 import android.hardware.display.DisplayManager
 import android.net.Uri
 import android.provider.Settings
@@ -102,6 +103,10 @@ fun LiveScreen(sessionId: String, onFinished: (sessionId: String) -> Unit) {
     // Only the live screen is landscape; every other screen follows the device. The previous value is restored on exit.
     DisposableEffect(Unit) {
         val activity = context.findActivity()
+        if (activity == null) {
+            Log.w("Cuentapepas", "No se encontró la actividad: no se puede girar a horizontal")
+            vm.postNotice(context.getString(R.string.live_rotate_failed))
+        }
         val previous = activity?.requestedOrientation
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         onDispose { if (previous != null) activity.requestedOrientation = previous }
@@ -250,13 +255,22 @@ private fun LiveContent(vm: LiveViewModel, ready: LivePhase.Ready, onRequestFini
             override fun onDisplayAdded(displayId: Int) = Unit
             override fun onDisplayRemoved(displayId: Int) = Unit
             override fun onDisplayChanged(displayId: Int) {
-                val display = pv?.display ?: displayManager.getDisplay(Display.DEFAULT_DISPLAY) ?: return
+                val display = pv?.display ?: displayManager.getDisplay(Display.DEFAULT_DISPLAY)
+                if (display == null) {
+                    Log.w("Cuentapepas", "Sin pantalla disponible al cambiar la rotación; no se actualizó la cámara")
+                    return
+                }
                 if (display.displayId == displayId) vm.camera.setRotation(display.rotation)
             }
         }
         displayManager.registerDisplayListener(listener, null)
         // The activity may still have been rotating when the camera was bound: resync once with the real rotation.
-        (pv?.display ?: displayManager.getDisplay(Display.DEFAULT_DISPLAY))?.let { vm.camera.setRotation(it.rotation) }
+        val resyncDisplay = pv?.display ?: displayManager.getDisplay(Display.DEFAULT_DISPLAY)
+        if (resyncDisplay != null) {
+            vm.camera.setRotation(resyncDisplay.rotation)
+        } else {
+            Log.w("Cuentapepas", "Sin pantalla disponible: no se pudo resincronizar la rotación de la cámara")
+        }
         onDispose { displayManager.unregisterDisplayListener(listener) }
     }
 
